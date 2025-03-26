@@ -7,7 +7,6 @@ using Jobs.Core.Contracts;
 using Jobs.DTO;
 using Jobs.Entities.Models;
 using Jobs.ReferenceApi.Contracts;
-using Jobs.ReferenceApi.Features.Contracts;
 using Jobs.ReferenceApi.Helpers;
 using Jobs.ReferenceApi.Services;
 using MediatR;
@@ -58,6 +57,40 @@ public static class EmploymentTypes
                 .RequireRateLimiting("FixedWindow")
                 .WithOpenApi();
         }
+    }
+    
+    public interface IEmploymentTypeService
+    {
+        Task<List<EmploymentTypeDto>> GetEmploymentTypesAsync();
+    }
+    
+    public class EmploymentTypeService(IGenericRepository<EmploymentType> empRepository, 
+        ICacheService cacheService, 
+        IMapper mapper) : BaseProcessingService(mapper), IEmploymentTypeService
+    {
+        private readonly IMapper _mapper = mapper;
+
+        public async Task<List<EmploymentTypeDto>> GetEmploymentTypesAsync()
+        {
+            await CheckOrLoadEmploymentTypesData();
+        
+            return cacheService.GetData<List<EmploymentTypeDto>>("empTypes");
+        }
+        
+        private async Task LoadEmploymentTypesDataToLocalCacheService()
+        {
+            var empTypes = await Task.FromResult(GetDataAsync<EmploymentType, EmploymentTypeDto>("./StorageData/EmpTypes.json",async () => await empRepository.GetAllAsync()));
+            cacheService.SetData("empTypes", empTypes, DateTimeOffset.UtcNow.AddYears(100));
+        }
+    
+        # region CheckAndLoad
+        protected async Task CheckOrLoadEmploymentTypesData()
+        {
+            if (!cacheService.HasData("empTypes"))
+                await LoadEmploymentTypesDataToLocalCacheService();
+        }
+        # endregion
+
     }
 
     public class ListEmploymentTypeQueryHandler(IEmploymentTypeService service) : IRequestHandler<QueryList, List<EmploymentTypeDto>>

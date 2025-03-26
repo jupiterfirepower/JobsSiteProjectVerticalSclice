@@ -7,7 +7,6 @@ using Jobs.Core.Contracts;
 using Jobs.DTO;
 using Jobs.Entities.Models;
 using Jobs.ReferenceApi.Contracts;
-using Jobs.ReferenceApi.Features.Contracts;
 using Jobs.ReferenceApi.Helpers;
 using Jobs.ReferenceApi.Services;
 using MediatR;
@@ -63,6 +62,40 @@ public static class WorkTypes
                 .RequireRateLimiting("FixedWindow")
                 .WithOpenApi();
         }
+    }
+    
+    public interface IWorkTypeService
+    {
+        Task<List<WorkTypeDto>> GetWorkTypesAsync();
+    }
+    
+    public class WorkTypeService(IGenericRepository<WorkType> workTypesRepository, 
+        ICacheService cacheService, 
+        IMapper mapper) : BaseProcessingService(mapper), IWorkTypeService
+    {
+        private readonly IMapper _mapper = mapper;
+
+        public async Task<List<WorkTypeDto>> GetWorkTypesAsync()
+        {
+            await CheckOrLoadWorkTypesData();
+        
+            return cacheService.GetData<List<WorkTypeDto>>("workTypes");
+        }
+        
+        private async Task LoadWorkTypesDataToLocalCacheService()
+        {
+            var workTypes = await Task.FromResult(GetDataAsync<WorkType, WorkTypeDto>("./StorageData/WorkTypes.json",async () => await workTypesRepository.GetAllAsync()));
+            cacheService.SetData("workTypes", workTypes, DateTimeOffset.UtcNow.AddYears(100));
+        }
+    
+        # region CheckAndLoad
+        protected async Task CheckOrLoadWorkTypesData()
+        {
+            if (!cacheService.HasData("workTypes"))
+                await LoadWorkTypesDataToLocalCacheService();
+        }
+        # endregion
+
     }
 
     public class ListWorkTypesQueryHandler(IWorkTypeService service) : IRequestHandler<QueryList, List<WorkTypeDto>>

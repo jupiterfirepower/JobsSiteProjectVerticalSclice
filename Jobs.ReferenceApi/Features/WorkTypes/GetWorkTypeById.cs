@@ -2,12 +2,13 @@ using System.Collections.Concurrent;
 using System.ComponentModel.DataAnnotations;
 using AutoMapper;
 using Jobs.Common.Constants;
+using Jobs.Common.Contracts;
 using Jobs.Common.Extentions;
 using Jobs.Core.Contracts;
 using Jobs.DTO;
 using Jobs.Entities.Models;
 using Jobs.ReferenceApi.Contracts;
-using Jobs.ReferenceApi.Features.Contracts;
+using Jobs.ReferenceApi.Services;
 using MediatR;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -92,7 +93,31 @@ public static class GetWorkTypeById
         }
     }
     
-    public class GetWorkTypeQueryHandler(IWorkTypeService service) : IRequestHandler<GetQuery, WorkTypeDto>
+    public interface IWorkTypeServiceExtended : WorkTypes.IWorkTypeService
+    {
+        Task<WorkTypeDto> GetWorkTypeByIdAsync(int id);
+    }
+    
+    
+    public class WorkTypeServiceExtended(IGenericRepository<WorkType> workTypesRepository, 
+        ICacheService cacheService, 
+        IMapper mapper) : WorkTypes.WorkTypeService(workTypesRepository, cacheService, mapper), IWorkTypeServiceExtended
+    {
+        private readonly IMapper _mapper = mapper;
+        private readonly ICacheService _cacheService = cacheService;
+
+        public async Task<WorkTypeDto> GetWorkTypeByIdAsync(int id)
+        {
+            await CheckOrLoadWorkTypesData();
+        
+            var currentListData = _cacheService.GetData<List<WorkTypeDto>>("workTypes");
+            var current = currentListData.FirstOrDefault(x=>x.WorkTypeId == id);
+
+            return _mapper.Map<WorkTypeDto>(current);
+        }
+    }
+    
+    public class GetWorkTypeQueryHandler(IWorkTypeServiceExtended service) : IRequestHandler<GetQuery, WorkTypeDto>
     {
         public async Task<WorkTypeDto> Handle(GetQuery request, CancellationToken cancellationToken) => await service.GetWorkTypeByIdAsync(request.Id);
     }

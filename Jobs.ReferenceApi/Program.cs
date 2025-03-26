@@ -25,9 +25,7 @@ using Jobs.ReferenceApi.Contracts;
 using Jobs.ReferenceApi.Data;
 using Jobs.ReferenceApi.Extensions;
 using Jobs.ReferenceApi.Features.Categories;
-using Jobs.ReferenceApi.Features.Contracts;
 using Jobs.ReferenceApi.Features.EmploymentTypes;
-using Jobs.ReferenceApi.Features.Services;
 //using Jobs.ReferenceApi.Features.Queries;
 using Jobs.ReferenceApi.Features.WorkTypes;
 using Jobs.ReferenceApi.Repositories;
@@ -84,9 +82,12 @@ try
     builder.Services.AddScoped<IApiKeyStorageServiceProvider, MemoryApiKeyStorageServiceProvider>();
     builder.Services.AddScoped<IApiKeyManagerServiceProvider, ApiKeyManagerServiceProvider>();
     builder.Services.AddScoped<ISecretApiKeyRepository, SecretApiKeyRepository>();
+    
     builder.Services.AddScoped<Categories.ICategoryService, Categories.CategoryService>();
-    builder.Services.AddScoped<IWorkTypeService, WorkTypeService>();
-    builder.Services.AddScoped<IEmploymentTypeService, EmploymentTypeService>();
+    builder.Services.AddScoped<WorkTypes.IWorkTypeService, WorkTypes.WorkTypeService>();
+    builder.Services.AddScoped<GetWorkTypeById.IWorkTypeServiceExtended, GetWorkTypeById.WorkTypeServiceExtended>();
+    builder.Services.AddScoped<EmploymentTypes.IEmploymentTypeService, EmploymentTypes.EmploymentTypeService>();
+    builder.Services.AddScoped<GetEmploymentTypeById.IEmploymentTypeServiceExtended, GetEmploymentTypeById.EmploymentTypeServiceExtended>();
     
     builder.Services.AddScoped<IApiKeyService, ApiKeyService>();
     builder.Services.AddScoped<IEncryptionService, NaiveEncryptionService>(p => 

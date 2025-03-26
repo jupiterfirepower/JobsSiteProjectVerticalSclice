@@ -1,11 +1,14 @@
 using System.Collections.Concurrent;
 using System.ComponentModel.DataAnnotations;
+using AutoMapper;
 using Jobs.Common.Constants;
+using Jobs.Common.Contracts;
 using Jobs.Common.Extentions;
 using Jobs.Core.Contracts;
 using Jobs.DTO;
+using Jobs.Entities.Models;
 using Jobs.ReferenceApi.Contracts;
-using Jobs.ReferenceApi.Features.Contracts;
+using Jobs.ReferenceApi.Services;
 using MediatR;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -84,8 +87,30 @@ public static class GetEmploymentTypeById
             .WithOpenApi();
         }
     }
+    public interface IEmploymentTypeServiceExtended: EmploymentTypes.IEmploymentTypeService
+    {
+        Task<EmploymentTypeDto> GetEmploymentTypeByIdAsync(int id);
+    }
     
-    public class GetEmploymentTypeQueryHandler(IEmploymentTypeService service) : IRequestHandler<GetQuery, EmploymentTypeDto>
+    public class EmploymentTypeServiceExtended(IGenericRepository<EmploymentType> empRepository, 
+        ICacheService cacheService, 
+        IMapper mapper) : EmploymentTypes.EmploymentTypeService(empRepository, cacheService, mapper), IEmploymentTypeServiceExtended
+    {
+        private readonly ICacheService _cacheService = cacheService;
+        private readonly IMapper _mapper1 = mapper;
+
+        public async Task<EmploymentTypeDto> GetEmploymentTypeByIdAsync(int id)
+        {
+            await CheckOrLoadEmploymentTypesData();
+        
+            var currentListData = _cacheService.GetData<List<EmploymentTypeDto>>("empTypes");
+            var current = currentListData.FirstOrDefault(x=>x.EmploymentTypeId == id);
+
+            return _mapper1.Map<EmploymentTypeDto>(current);
+        }
+    }
+    
+    public class GetEmploymentTypeQueryHandler(IEmploymentTypeServiceExtended service) : IRequestHandler<GetQuery, EmploymentTypeDto>
     {
         public async Task<EmploymentTypeDto> Handle(GetQuery request, CancellationToken cancellationToken) => 
             await service.GetEmploymentTypeByIdAsync(request.Id);

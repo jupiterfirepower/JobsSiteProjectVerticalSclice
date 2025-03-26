@@ -65,24 +65,25 @@
     </ItemGroup>
 
     <ItemGroup>
-      <EmbeddedResource Remove="Features\Vacancies\**" />
       <EmbeddedResource Remove="DeflateCompression\**" />
       <EmbeddedResource Remove="Observability\**" />
       <EmbeddedResource Remove="DTOModels\**" />
     </ItemGroup>
 
     <ItemGroup>
-      <Content Remove="Features\Vacancies\**" />
       <Content Remove="DeflateCompression\**" />
       <Content Remove="Observability\**" />
       <Content Remove="DTOModels\**" />
     </ItemGroup>
 
     <ItemGroup>
-      <None Remove="Features\Vacancies\**" />
       <None Remove="DeflateCompression\**" />
       <None Remove="Observability\**" />
       <None Remove="DTOModels\**" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="Features\Vacancies\" />
     </ItemGroup>
 
 </Project>

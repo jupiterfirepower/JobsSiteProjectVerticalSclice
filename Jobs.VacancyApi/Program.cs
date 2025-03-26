@@ -319,7 +319,7 @@ try
         .MapGroup("dict-endpoints")
         .WithTags("DB Dictionary Endpoints");
     
-    app.MapGet("api/v{version:apiVersion}/categories", async Task<Results<Ok<List<CategoryDto>>, BadRequest>> (HttpContext context, 
+    /*app.MapGet("api/v{version:apiVersion}/categories", async Task<Results<Ok<List<CategoryDto>>, BadRequest>> (HttpContext context, 
             [FromServices] ISender mediatr, 
             [FromServices] IApiKeyService service, 
             [FromServices] IEncryptionService cryptService,
@@ -503,7 +503,7 @@ try
         .WithName("GetWorkType")
         .MapApiVersion(apiVersionSet, version1)
         .RequireRateLimiting("FixedWindow")
-        .WithOpenApi();
+        .WithOpenApi();*/
 
 //api/v{version:apiVersion}
     app.MapGet("api/v{version:apiVersion}/vacancies", async Task<Results<Ok<List<VacancyDto>>, BadRequest>> (HttpContext context, 
