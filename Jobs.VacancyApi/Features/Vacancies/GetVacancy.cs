@@ -4,6 +4,7 @@ using Jobs.Common.Constants;
 using Jobs.Common.Contracts;
 using Jobs.Common.Extentions;
 using Jobs.Core.Contracts;
+using Jobs.Core.Helpers;
 using Jobs.DTO;
 using Jobs.Entities.Models;
 using Jobs.VacancyApi.Data;
@@ -37,14 +38,14 @@ public static class GetVacancy
             [FromHeader(Name = HttpHeaderKeys.XApiSecretHeaderKey), Required, 
              StringLength(HttpHeaderKeys.XApiSecretHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.XApiSecretHeaderKeyMinLength)] string apiSecret) =>
         {
-            /*Guards(mediatr, service, cryptService, signedNonceService, httpContextAccessor);
+            GuardsHelper.Guards(mediatr, service, cryptService, signedNonceService, httpContextAccessor);
             
-            if (IsBadRequest(httpContextAccessor, 
+            if (ApiSecurityHelper.IsBadRequest(httpContextAccessor, 
                     cryptService, signedNonceService, service, 
                     apiKey, signedNonce, apiSecret))
             {
                 return TypedResults.BadRequest();
-            }*/
+            }
 
             var vacancy = await mediatr.Send(new RequestGetVacancyQuery(id));
             return vacancy == null ? TypedResults.NotFound() : TypedResults.Ok(vacancy);
@@ -61,7 +62,6 @@ public static class GetVacancy
             return await next(context);
         })
         .WithName("GetVacancy")
-        //.MapApiVersion(apiVersionSet, version1)
         .RequireRateLimiting("FixedWindow")
         .WithOpenApi();
         }

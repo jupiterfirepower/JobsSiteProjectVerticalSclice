@@ -5,6 +5,7 @@ using Jobs.Common.Contracts;
 using Jobs.Core.Contracts;
 using Jobs.Core.Extentions;
 using Jobs.Core.Filters;
+using Jobs.Core.Helpers;
 using Jobs.DTO;
 using Jobs.DTO.In;
 using Jobs.Entities.Models;
@@ -58,14 +59,14 @@ public static class CreateVacancy
                          MinimumLength = HttpHeaderKeys.XApiSecretHeaderKeyMinLength)]
                     string apiSecret) =>
                 {
-                    /*Guards(mediatr, service, cryptService, signedNonceService, httpContextAccessor);
+                    GuardsHelper.Guards(mediatr, service, cryptService, signedNonceService, httpContextAccessor);
 
-                    if (IsBadRequest(httpContextAccessor,
+                    if (ApiSecurityHelper.IsBadRequest(httpContextAccessor,
                             cryptService, signedNonceService, service,
                             apiKey, signedNonce, apiSecret))
                     {
                         return TypedResults.BadRequest();
-                    }*/
+                    }
 
                     var sanitized = SanitizeHelper.SanitizeVacancyInDto(vacancy);
 
@@ -90,7 +91,6 @@ public static class CreateVacancy
                 })
                 .AddEndpointFilter<DtoModeValidationFilter<VacancyInDto>>()
                 .WithName("AddVacancy")
-                //.MapApiVersion(apiVersionSet, version1)
                 .RequireRateLimiting("FixedWindow")
                 .WithOpenApi();
         }

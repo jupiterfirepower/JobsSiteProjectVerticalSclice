@@ -4,6 +4,7 @@ using Jobs.Common.Constants;
 using Jobs.Common.Contracts;
 using Jobs.Common.Extentions;
 using Jobs.Core.Contracts;
+using Jobs.Core.Helpers;
 using Jobs.DTO;
 using Jobs.Entities.Models;
 using Jobs.ReferenceApi.Contracts;
@@ -32,13 +33,6 @@ public static class WorkTypes
     {
         public void MapEndpoint(IEndpointRouteBuilder app)
         {
-            /*var version1 = new ApiVersion(1);
-
-            var apiVersionSet = app.NewApiVersionSet()
-                .HasApiVersion(version1)
-                .ReportApiVersions()
-                .Build();*/
-            //api/v{version:apiVersion}
             app.MapGet("/work-types", async Task<Results<Ok<List<WorkTypeDto>>, BadRequest>> (HttpContext context, 
                     [FromServices] ISender mediatr, 
                     [FromServices] IApiKeyService service, 
@@ -52,14 +46,14 @@ public static class WorkTypes
                     [FromHeader(Name = HttpHeaderKeys.XApiSecretHeaderKey), Required, 
                      StringLength(HttpHeaderKeys.XApiSecretHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.XApiSecretHeaderKeyMinLength)] string apiSecret) =>
                 {
-                    /*GuardsHelper.Guards(mediatr, service, cryptService, signedNonceService, httpContextAccessor);
+                    GuardsHelper.Guards(mediatr, service, cryptService, signedNonceService, httpContextAccessor);
             
                     if (ApiSecurityHelper.IsBadRequest(httpContextAccessor, 
                             cryptService, signedNonceService, service, 
                             apiKey, signedNonce, apiSecret))
                     {
                         return TypedResults.BadRequest();
-                    }*/
+                    }
             
                     var ipAddress = context.Request.GetIpAddress();
                     Log.Information($"ClientIPAddress - {ipAddress}.");

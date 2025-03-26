@@ -2,31 +2,35 @@ using System.ComponentModel.DataAnnotations;
 using AutoMapper;
 using Jobs.Common.Constants;
 using Jobs.Common.Contracts;
+using Jobs.CompanyApi.Helpers;
 using Jobs.Core.Contracts;
+using Jobs.Core.Filters;
 using Jobs.Core.Helpers;
 using Jobs.DTO;
+using Jobs.DTO.In;
 using Jobs.Entities.Models;
 using MediatR;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Jobs.VacancyApi.Features.Vacancies;
+namespace Jobs.CompanyApi.Features.Companies;
 
-public static class DeleteVacancy
+public static class UpdateCompany
 {
-    public record RequestDeleteVacancyCommand(int Id) : IRequest<int>;
-
-    public record Result(bool Success);
+    public record RequestUpdateCompanyCommand(CompanyInDto Company) : IRequest<int>;
     
-    public class DeleteVacancyEndpoint : IEndpoint
+    public record Results(CompanyDto Data);
+    
+    public class UpdateCompanyEndpoint : IEndpoint
     {
         public void MapEndpoint(IEndpointRouteBuilder app)
         {
-            app.MapDelete("/vacancies/{id:int}",  async Task<Results<BadRequest, NotFound, NoContent>> (int id, 
+            app.MapPut("/companies/{id:int}", async Task<Results<BadRequest, NoContent, NotFound>> (int id, 
+                CompanyInDto company, 
                 [FromServices] ISender mediatr,
                 [FromServices] IApiKeyService service, 
-                [FromServices] IEncryptionService cryptService,
                 [FromServices] ISignedNonceService signedNonceService,
+                [FromServices] IEncryptionService cryptService,
                 [FromServices] IHttpContextAccessor httpContextAccessor,
                 [FromHeader(Name = HttpHeaderKeys.XApiHeaderKey), Required, 
                  StringLength(HttpHeaderKeys.XApiHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.XApiHeaderKeyMinLength)] string apiKey,
@@ -44,44 +48,56 @@ public static class DeleteVacancy
                     return TypedResults.BadRequest();
                 }
 
-                var result = await mediatr.Send(new RequestDeleteVacancyCommand(id));
-                return result == -1 ? TypedResults.NotFound() : TypedResults.NoContent();
+                var sanitized = SanitizerDtoHelper.SanitizeCompanyInDto(company);
+                var result = await mediatr.Send(new RequestUpdateCompanyCommand(sanitized));
+
+                return result > 0 ? TypedResults.NoContent() : TypedResults.NotFound();
             })
             .AddEndpointFilter(async (context, next) =>
             {
                 var id = context.GetArgument<int>(0);
-       
-                if (id <= 0)
+                var company = context.GetArgument<CompanyInDto>(1);
+            
+                if (id <= 0 || id != company.CompanyId)
                 {
                     return TypedResults.BadRequest();
                 }
 
                 return await next(context);
             })
-            .WithName("RemoveVacancy")
+            .AddEndpointFilter<DtoModeValidationFilter<CompanyInDto>>()
+            .WithName("ChangeCompany")
             .RequireRateLimiting("FixedWindow")
-            .WithOpenApi();
-            }
-    }
-    
-    public interface IDeleteVacancyService
-    {
-        Task<int> DeleteVacancy(int id);
-    }
-    
-    public class DeleteVacancyService(IGenericRepository<Vacancy> repository) :  IDeleteVacancyService
-    {
-        public async Task<int> DeleteVacancy(int id)
-        {
-            bool result = repository.Remove(id);
-            await repository.SaveAsync();
-            return result ? 0 : -1;
+            .WithOpenApi(); 
         }
     }
     
-    public class DeleteVacancyCommandHandler(IDeleteVacancyService service) : IRequestHandler<RequestDeleteVacancyCommand, int>
+    public interface IUpdateCompanyService
     {
-        public async Task<int> Handle(RequestDeleteVacancyCommand command, CancellationToken cancellationToken) =>
-            await service.DeleteVacancy(command.Id);
+        Task<int> UpdateCompany(CompanyInDto company);
+    }
+    
+    public class UpdateCompanyService(IGenericRepository<Company> repository, IMapper mapper) : IUpdateCompanyService
+    {
+        public async Task<int> UpdateCompany(CompanyInDto company)
+        {
+            var currentCompany = await repository.GetByIdAsync(company.CompanyId);
+        
+            if (currentCompany == null)
+            {
+                return -1;
+            }
+
+            var current = mapper.Map<Company>(company);
+            repository.Change(currentCompany, current);
+            await repository.SaveAsync();
+            return currentCompany.CompanyId;
+        }
+    }
+    
+    public class UpdateCompanyCommandHandler(IUpdateCompanyService service) : IRequestHandler<RequestUpdateCompanyCommand, int>
+    {
+        public async Task<int> Handle(RequestUpdateCompanyCommand command, CancellationToken cancellationToken) =>
+            await service.UpdateCompany(command.Company);
     }
 }

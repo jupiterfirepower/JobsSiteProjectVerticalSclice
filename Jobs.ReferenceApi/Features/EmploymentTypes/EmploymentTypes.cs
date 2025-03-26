@@ -4,6 +4,7 @@ using Jobs.Common.Constants;
 using Jobs.Common.Contracts;
 using Jobs.Common.Extentions;
 using Jobs.Core.Contracts;
+using Jobs.Core.Helpers;
 using Jobs.DTO;
 using Jobs.Entities.Models;
 using Jobs.ReferenceApi.Contracts;
@@ -47,14 +48,14 @@ public static class EmploymentTypes
                     [FromHeader(Name = HttpHeaderKeys.XApiSecretHeaderKey), Required, 
                      StringLength(HttpHeaderKeys.XApiSecretHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.XApiSecretHeaderKeyMinLength)] string apiSecret) =>
                 {
-                    /*GuardsHelper.Guards(mediatr, service, cryptService, signedNonceService, httpContextAccessor);
+                    GuardsHelper.Guards(mediatr, service, cryptService, signedNonceService, httpContextAccessor);
             
                     if (ApiSecurityHelper.IsBadRequest(httpContextAccessor, 
                             cryptService, signedNonceService, service, 
                             apiKey, signedNonce, apiSecret))
                     {
                         return TypedResults.BadRequest();
-                    }*/
+                    }
             
                     var ipAddress = context.Request.GetIpAddress();
                     Log.Information($"ClientIPAddress - {ipAddress}.");

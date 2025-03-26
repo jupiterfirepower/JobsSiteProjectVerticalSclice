@@ -6,7 +6,6 @@ using Jobs.Entities.Models;
 using Jobs.VacancyApi.Contracts;
 using Jobs.VacancyApi.Data;
 using Jobs.VacancyApi.Repository;
-using Jobs.VacancyApi.Services;
 using JobsWebApiNUnitTests.Helper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;

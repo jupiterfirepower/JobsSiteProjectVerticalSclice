@@ -9,13 +9,10 @@ using Jobs.Common.Extentions;
 using Jobs.Common.Options;
 using Jobs.Common.Settings;
 using Jobs.CompanyApi.DBContext;
-using Jobs.CompanyApi.Features.Commands;
+using Jobs.CompanyApi.Features.Companies;
 using Jobs.CompanyApi.Features.Notifications;
-using Jobs.CompanyApi.Features.Queries;
 using Jobs.CompanyApi.Helpers;
 using Jobs.CompanyApi.Repositories;
-using Jobs.CompanyApi.Services;
-using Jobs.CompanyApi.Services.Contracts;
 using Jobs.Core.Contracts;
 using Jobs.Core.Contracts.Providers;
 using Jobs.Core.Extentions;
@@ -118,7 +115,14 @@ builder.Services.AddScoped<IGenericRepository<Company>, CompanyRepository>();
 builder.Services.AddScoped<IApiKeyStorageServiceProvider, MemoryApiKeyStorageServiceProvider>();
 builder.Services.AddScoped<IApiKeyManagerServiceProvider, ApiKeyManagerServiceProvider>();
 builder.Services.AddScoped<ISecretApiKeyRepository, SecretApiKeyRepository>();
-builder.Services.AddScoped<IProcessingService, ProcessingService>();
+
+//builder.Services.AddScoped<IProcessingService, ProcessingService>();
+builder.Services.AddScoped<GetCompanies.ICompaniesService, GetCompanies.CompaniesService>();
+builder.Services.AddScoped<GetCompany.ICompanyService, GetCompany.CompanyService>();
+builder.Services.AddScoped<CreateCompany.ICreateCompanyService, CreateCompany.CreateCompanyService>();
+builder.Services.AddScoped<UpdateCompany.IUpdateCompanyService, UpdateCompany.UpdateCompanyService>();
+builder.Services.AddScoped<DeleteCompany.IDeleteCompanyService, DeleteCompany.DeleteCompanyService>();
+
 builder.Services.AddScoped<IApiKeyService, ApiKeyService>();
 builder.Services.AddScoped<ISignedNonceService, SignedNonceService>();
 builder.Services.AddScoped<IEncryptionService, NaiveEncryptionService>(p => 
@@ -186,10 +190,26 @@ builder.Services.AddCors(options =>
     });
 });
 
+builder.Services.AddEndpoints(typeof(Program).Assembly);
+
 var app = builder.Build();
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+var version1 = new ApiVersion(1);
+
+var apiVersionSet = app.NewApiVersionSet()
+    .HasApiVersion(version1)
+    //.HasApiVersion(new ApiVersion(2))
+    .ReportApiVersions()
+    .Build();
+
+RouteGroupBuilder versionedGroup = app
+    .MapGroup("api/v{version:apiVersion}")
+    .WithApiVersionSet(apiVersionSet);
+
+app.MapEndpoints(versionedGroup);
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -279,276 +299,6 @@ app.Use(async (context, next) =>
 app.UseCors();
 app.UseRateLimiter();
 
-var version1 = new ApiVersion(1);
-
-var apiVersionSet = app.NewApiVersionSet()
-    .HasApiVersion(version1)
-    //.HasApiVersion(new ApiVersion(2))
-    .ReportApiVersions()
-    .Build();
-
-bool IsBadRequest(IHttpContextAccessor httpContextAccessor, 
-    IEncryptionService cryptService,
-    ISignedNonceService signedNonceService,
-    IApiKeyService service,
-    string apiKey, 
-    string signedNonce,
-    string apiSecret)
-{
-    if (!UserAgentConstant.AppUserAgent.Equals(httpContextAccessor.HttpContext?.Request.Headers.UserAgent))
-    {
-        return true;
-    }
-        
-    var (longNonce ,resultParse) = signedNonceService.IsSignedNonceValid(signedNonce);
-
-    if (builder.Environment.IsDevelopment())
-    {
-        longNonce = DateTime.UtcNow.Ticks;
-    }
-
-    if (!resultParse)
-    {
-        return true;
-    }
-            
-    // apiKey must be in Base64
-    var realApiKey = cryptService.Decrypt(apiKey);
-    var realApiSecret = cryptService.Decrypt(apiSecret);
-            
-    if (!service.IsValid(realApiKey, longNonce, realApiSecret))
-    {
-        return true;
-    }
-
-    return false;
-}
-
-void Guards(ISender mediatr, IApiKeyService service,
-    IEncryptionService cryptService, ISignedNonceService signedNonceService,
-    IHttpContextAccessor httpContextAccessor)
-{
-    ArgumentNullException.ThrowIfNull(mediatr, nameof(mediatr));
-    ArgumentNullException.ThrowIfNull(service, nameof(service));
-    ArgumentNullException.ThrowIfNull(cryptService, nameof(cryptService));
-    ArgumentNullException.ThrowIfNull(signedNonceService, nameof(signedNonceService));
-    ArgumentNullException.ThrowIfNull(httpContextAccessor, nameof(httpContextAccessor));
-}
-
-app.MapGet("api/v{version:apiVersion}/companies", async Task<Results<Ok<List<CompanyDto>>, BadRequest>> (HttpContext context, 
-        ClaimsPrincipal user,
-        [FromServices] ISender mediatr, 
-        [FromServices] IApiKeyService service,
-        [FromServices] ISignedNonceService signedNonceService,
-        [FromServices] IEncryptionService cryptService,
-        [FromServices] IHttpContextAccessor httpContextAccessor,
-        [FromHeader(Name = HttpHeaderKeys.XApiHeaderKey), Required, 
-         StringLength(HttpHeaderKeys.XApiHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.XApiHeaderKeyMinLength)] string apiKey,
-        [FromHeader(Name = HttpHeaderKeys.SNonceHeaderKey), Required, 
-         StringLength(HttpHeaderKeys.SNonceHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.SNonceHeaderKeyMinLength)] string signedNonce,
-        [FromHeader(Name = HttpHeaderKeys.XApiSecretHeaderKey), Required, 
-         StringLength(HttpHeaderKeys.XApiSecretHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.XApiSecretHeaderKeyMinLength)] string apiSecret) =>
-    {
-        app.Logger.LogInformation($"UserName: {user.Identity?.Name}");
-        Console.WriteLine($"UserAgent - {httpContextAccessor.HttpContext?.Request.Headers.UserAgent}");
-        
-        Guards(mediatr, service, cryptService, signedNonceService, httpContextAccessor);
-        
-        if (IsBadRequest(httpContextAccessor, 
-                cryptService, signedNonceService, service, 
-                apiKey, signedNonce, apiSecret))
-        {
-            return TypedResults.BadRequest();
-        }
-
-        var ipAddress = context.Request.GetIpAddress();
-        Log.Information($"ClientIPAddress - {ipAddress}.");
-        
-        var companies = await mediatr.Send(new ListCompaniesQuery());
-        return TypedResults.Ok(companies);
-    }).WithName("GetCompanies")
-    .MapApiVersion(apiVersionSet, version1)
-    .RequireRateLimiting("FixedWindow")
-    .RequireAuthorization()
-    .WithOpenApi();
-
-app.MapGet("api/v{version:apiVersion}/companies/{id:int}", async Task<Results<Ok<CompanyDto>, BadRequest, NotFound>> (int id,
-        ISender mediatr,
-        [FromServices] IApiKeyService service, 
-        [FromServices] ISignedNonceService signedNonceService,
-        [FromServices] IEncryptionService cryptService,
-        [FromServices] IHttpContextAccessor httpContextAccessor,
-        [FromHeader(Name = HttpHeaderKeys.XApiHeaderKey), Required, 
-         StringLength(HttpHeaderKeys.XApiHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.XApiHeaderKeyMinLength)] string apiKey,
-        [FromHeader(Name = HttpHeaderKeys.SNonceHeaderKey), Required, 
-         StringLength(HttpHeaderKeys.SNonceHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.SNonceHeaderKeyMinLength)] string signedNonce,
-        [FromHeader(Name = HttpHeaderKeys.XApiSecretHeaderKey), Required, 
-         StringLength(HttpHeaderKeys.XApiSecretHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.XApiSecretHeaderKeyMinLength)] string apiSecret) =>
-    {
-        Guards(mediatr, service, cryptService, signedNonceService, httpContextAccessor);
-        
-        if (IsBadRequest(httpContextAccessor, 
-                cryptService, signedNonceService, service, 
-                apiKey, signedNonce, apiSecret))
-        {
-            return TypedResults.BadRequest();
-        }
-
-        var company = await mediatr.Send(new GetCompanyQuery(id));
-        return company == null ? TypedResults.NotFound() : TypedResults.Ok(company);
-    })
-    .AddEndpointFilter(async (context, next) =>
-    {
-        var id = context.GetArgument<int>(0);
-    
-        if (id <= 0)
-        {
-            return TypedResults.BadRequest();
-        }
-
-        return await next(context);
-    })
-    .WithName("GetCompany")
-    .MapApiVersion(apiVersionSet, version1)
-    .RequireRateLimiting("FixedWindow")
-    .WithOpenApi();
-
-app.MapPost("api/v{version:apiVersion}/companies", async Task<Results<Created<CompanyDto>, BadRequest>> ([FromBody] CompanyInDto company,
-        [FromServices] IApiKeyService service, 
-        [FromServices] ISignedNonceService signedNonceService,
-        [FromServices] IEncryptionService cryptService,
-        [FromServices] ISender mediatr, 
-        [FromServices] IPublisher publisher, 
-        [FromServices] IHttpContextAccessor httpContextAccessor,
-        [FromHeader(Name = HttpHeaderKeys.XApiHeaderKey), Required, 
-         StringLength(HttpHeaderKeys.XApiHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.XApiHeaderKeyMinLength)] string apiKey,
-        [FromHeader(Name = HttpHeaderKeys.SNonceHeaderKey), Required, 
-         StringLength(HttpHeaderKeys.SNonceHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.SNonceHeaderKeyMinLength)] string signedNonce,
-        [FromHeader(Name = HttpHeaderKeys.XApiSecretHeaderKey), Required, 
-         StringLength(HttpHeaderKeys.XApiSecretHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.XApiSecretHeaderKeyMinLength)] string apiSecret) =>
-        {
-            Guards(mediatr, service, cryptService, signedNonceService, httpContextAccessor);
-            
-            if (IsBadRequest(httpContextAccessor, 
-                    cryptService, signedNonceService, service, 
-                    apiKey, signedNonce, apiSecret))
-            {
-                return TypedResults.BadRequest();
-            }
-            
-            var sanitized = SanitizerDtoHelper.SanitizeCompanyInDto(company);
-
-            var result = await mediatr.Send(new CreateCompanyCommand(sanitized));
-            if (0 == result.CompanyId) return TypedResults.BadRequest();
-                
-            await publisher.Publish(new CompanyCreatedNotification(result.CompanyId));
-            
-            return TypedResults.Created($"/companies/{result.CompanyId}", result);
-    })
-    .AddEndpointFilter(async (context, next) =>
-    {
-        var company = context.GetArgument<CompanyInDto>(0);
-    
-        if (company.CompanyId != 0)
-        {
-            return TypedResults.BadRequest();
-        }
-
-        return await next(context);
-    })
-    .AddEndpointFilter<DtoModeValidationFilter<CompanyInDto>>()
-    .WithName("AddCompany")
-    .MapApiVersion(apiVersionSet, version1)
-    .RequireRateLimiting("FixedWindow")
-    .WithOpenApi();
-
-app.MapPut("api/v{version:apiVersion}/companies/{id:int}", async Task<Results<BadRequest, NoContent, NotFound>> (int id, 
-        CompanyInDto company, 
-        [FromServices] ISender mediatr,
-        [FromServices] IApiKeyService service, 
-        [FromServices] ISignedNonceService signedNonceService,
-        [FromServices] IEncryptionService cryptService,
-        [FromServices] IHttpContextAccessor httpContextAccessor,
-        [FromHeader(Name = HttpHeaderKeys.XApiHeaderKey), Required, 
-         StringLength(HttpHeaderKeys.XApiHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.XApiHeaderKeyMinLength)] string apiKey,
-        [FromHeader(Name = HttpHeaderKeys.SNonceHeaderKey), Required, 
-         StringLength(HttpHeaderKeys.SNonceHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.SNonceHeaderKeyMinLength)] string signedNonce,
-        [FromHeader(Name = HttpHeaderKeys.XApiSecretHeaderKey), Required, 
-         StringLength(HttpHeaderKeys.XApiSecretHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.XApiSecretHeaderKeyMinLength)] string apiSecret) =>
-    {
-        Guards(mediatr, service, cryptService, signedNonceService, httpContextAccessor);
-        
-        if (IsBadRequest(httpContextAccessor, 
-                cryptService, signedNonceService, service, 
-                apiKey, signedNonce, apiSecret))
-        {
-            return TypedResults.BadRequest();
-        }
-
-        var sanitized = SanitizerDtoHelper.SanitizeCompanyInDto(company);
-        var result = await mediatr.Send(new UpdateCompanyCommand(sanitized));
-
-        return result > 0 ? TypedResults.NoContent() : TypedResults.NotFound();
-    })
-    .AddEndpointFilter(async (context, next) =>
-    {
-        var id = context.GetArgument<int>(0);
-        var company = context.GetArgument<CompanyInDto>(1);
-    
-        if (id <= 0 || id != company.CompanyId)
-        {
-            return TypedResults.BadRequest();
-        }
-
-        return await next(context);
-    })
-    .AddEndpointFilter<DtoModeValidationFilter<CompanyInDto>>()
-    .WithName("ChangeCompany")
-    .MapApiVersion(apiVersionSet, version1)
-    .RequireRateLimiting("FixedWindow")
-    .WithOpenApi();
-
-app.MapDelete("api/v{version:apiVersion}/companies/{id:int}", async Task<Results<BadRequest, NoContent, NotFound>> (int id, 
-        ISender mediatr,
-        [FromServices] IApiKeyService service, 
-        [FromServices] ISignedNonceService signedNonceService,
-        [FromServices] IEncryptionService cryptService,
-        [FromServices] IHttpContextAccessor httpContextAccessor,
-        [FromHeader(Name = HttpHeaderKeys.XApiHeaderKey), Required, 
-         StringLength(HttpHeaderKeys.XApiHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.XApiHeaderKeyMinLength)] string apiKey,
-        [FromHeader(Name = HttpHeaderKeys.SNonceHeaderKey), Required, 
-         StringLength(HttpHeaderKeys.SNonceHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.SNonceHeaderKeyMinLength)] string signedNonce,
-        [FromHeader(Name = HttpHeaderKeys.XApiSecretHeaderKey), Required, 
-         StringLength(HttpHeaderKeys.XApiSecretHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.XApiSecretHeaderKeyMinLength)] string apiSecret) =>
-    {
-        Guards(mediatr, service, cryptService, signedNonceService, httpContextAccessor);
-        
-        if (IsBadRequest(httpContextAccessor, 
-                cryptService, signedNonceService, service, 
-                apiKey, signedNonce, apiSecret))
-        {
-            return TypedResults.BadRequest();
-        }
-
-        var result = await mediatr.Send(new DeleteCompanyCommand(id));
-        return result == -1 ? TypedResults.NotFound() : TypedResults.NoContent();
-    })
-    .AddEndpointFilter(async (context, next) =>
-    {
-        var id = context.GetArgument<int>(0);
-   
-        if (id <= 0)
-        {
-            return TypedResults.BadRequest();
-        }
-
-        return await next(context);
-    })
-    .WithName("RemoveCompany")
-    .MapApiVersion(apiVersionSet, version1)
-    .RequireRateLimiting("FixedWindow")
-    .WithOpenApi();
-    
 app.UseSerilogRequestLogging();
 
 app.Run();

@@ -56,7 +56,7 @@ public static class Categories
                     [FromHeader(Name = HttpHeaderKeys.XApiSecretHeaderKey), Required, 
                      StringLength(HttpHeaderKeys.XApiSecretHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.XApiSecretHeaderKeyMinLength)] string apiSecret) =>
                 {
-                    /*GuardsHelper.Guards(mediatr, service, cryptService, signedNonceService, httpContextAccessor);
+                    GuardsHelper.Guards(mediatr, service, cryptService, signedNonceService, httpContextAccessor);
                     Console.WriteLine("Start Get Categories.");
            
                     if (ApiSecurityHelper.IsBadRequest(httpContextAccessor, 
@@ -64,7 +64,7 @@ public static class Categories
                             apiKey, signedNonce, apiSecret))
                     {
                         return TypedResults.BadRequest();
-                    }*/
+                    }
             
                     var ipAddress = context.Request.GetIpAddress();
                     Log.Information($"ClientIPAddress - {ipAddress}.");
@@ -83,15 +83,9 @@ public static class Categories
         Task<List<CategoryDto>> GetCategoriesAsync();
     }
     
-    public class ListCategoriesQueryHandler(ICategoryService service) : IRequestHandler<QueryList, List<CategoryDto>>
-    {
-        public async Task<List<CategoryDto>> Handle(QueryList request, CancellationToken cancellationToken) =>
-            await service.GetCategoriesAsync();
-    }
-    
     public class CategoryService(IGenericRepository<Category> categoryRepository, 
-                                 ICacheService cacheService, 
-                                 IMapper mapper) : BaseProcessingService(mapper), ICategoryService
+        ICacheService cacheService, 
+        IMapper mapper) : BaseProcessingService(mapper), ICategoryService
     {
         public async Task<List<CategoryDto>> GetCategoriesAsync()
         {
@@ -115,4 +109,11 @@ public static class Categories
         # endregion
 
     }
+    
+    public class ListCategoriesQueryHandler(ICategoryService service) : IRequestHandler<QueryList, List<CategoryDto>>
+    {
+        public async Task<List<CategoryDto>> Handle(QueryList request, CancellationToken cancellationToken) =>
+            await service.GetCategoriesAsync();
+    }
+
 }
