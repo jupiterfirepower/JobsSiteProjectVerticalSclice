@@ -1,0 +1,36 @@
+﻿<wpf:ResourceDictionary xml:space="preserve" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:s="clr-namespace:System;assembly=mscorlib" xmlns:ss="urn:shemas-jetbrains-com:settings-storage-xaml" xmlns:wpf="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+	<s:String x:Key="/Default/CodeInspection/ExcludedFiles/FilesAndFoldersToSkip2/=7020124F_002D9FFC_002D4AC3_002D8F3D_002DAAB8E0240759_002Ff_003AArgon2_002Ecs_002Fl_003A_002E_002E_003F_002E_002E_003F_002E_002E_003F_002Econfig_003FJetBrains_003FRider2024_002E3_003Fresharper_002Dhost_003FSourcesCache_003Fd7c9c0a2a4bbebcc89e4b02318ee228c785f8fb4ed2cd0d69e12c37489717b3_003FArgon2_002Ecs/@EntryIndexedValue">ForceIncluded</s:String>
+	<s:String x:Key="/Default/CodeInspection/ExcludedFiles/FilesAndFoldersToSkip2/=7020124F_002D9FFC_002D4AC3_002D8F3D_002DAAB8E0240759_002Ff_003ACallSiteFactory_002Ecs_002Fl_003A_002E_002E_003F_002E_002E_003F_002Econfig_003FJetBrains_003FRider2024_002E2_003Fresharper_002Dhost_003FSourcesCache_003F9dd63934bdf2dcaeac18ff2bf4e6198cdb804aefcebdfcc5dffc51709ea286_003FCallSiteFactory_002Ecs/@EntryIndexedValue">ForceIncluded</s:String>
+	<s:String x:Key="/Default/CodeInspection/ExcludedFiles/FilesAndFoldersToSkip2/=7020124F_002D9FFC_002D4AC3_002D8F3D_002DAAB8E0240759_002Ff_003AExceptionDispatchInfo_002Ecs_002Fl_003A_002E_002E_003F_002E_002E_003F_002Econfig_003FJetBrains_003FRider2024_002E2_003Fresharper_002Dhost_003FDecompilerCache_003Fdecompiler_003F9191eac31f284a10b284fabb9f96c4bcc2d600_003F7c_003F3225a3ed_003FExceptionDispatchInfo_002Ecs/@EntryIndexedValue">ForceIncluded</s:String>
+	<s:String x:Key="/Default/CodeInspection/ExcludedFiles/FilesAndFoldersToSkip2/=7020124F_002D9FFC_002D4AC3_002D8F3D_002DAAB8E0240759_002Ff_003APreparedStatement_002Ecs_002Fl_003A_002E_002E_003F_002E_002E_003F_002Econfig_003FJetBrains_003FRider2024_002E3_003Fresharper_002Dhost_003FSourcesCache_003F3f4d6bacaf5dbc95657ad0747522857b1c6577b198419abeb356b15ccee456f_003FPreparedStatement_002Ecs/@EntryIndexedValue">ForceIncluded</s:String>
+	<s:String x:Key="/Default/CodeInspection/ExcludedFiles/FilesAndFoldersToSkip2/=7020124F_002D9FFC_002D4AC3_002D8F3D_002DAAB8E0240759_002Ff_003AServiceProviderEngineScope_002Ecs_002Fl_003A_002E_002E_003F_002E_002E_003F_002Econfig_003FJetBrains_003FRider2024_002E2_003Fresharper_002Dhost_003FDecompilerCache_003Fdecompiler_003F5104d7b0292e45b095e4112d70086b0a16b18_003F56_003F1f3f5da4_003FServiceProviderEngineScope_002Ecs/@EntryIndexedValue">ForceIncluded</s:String>
+	<s:String x:Key="/Default/Environment/UnitTesting/UnitTestSessionStore/Sessions/=2e6d0163_002D3676_002D4546_002D91da_002Dceb573545c1e/@EntryIndexedValue">&lt;SessionState ContinuousTestingMode="0" Name="Tests" xmlns="urn:schemas-jetbrains-com:jetbrains-ut-session"&gt;
+  &lt;TestAncestor&gt;
+    &lt;TestId&gt;NUnit3x::D09D39AD-9BAE-4B14-98BF-9725FB38B12A::net8.0::JobsWebApiNUnitTests.Tests&lt;/TestId&gt;
+    &lt;TestId&gt;NUnit3x::9DBD2A98-9791-4A6D-A425-3031E4DE1F59::net8.0::JobsWebApiIntegrationsTests.JobsWebApiIntegrationsTests&lt;/TestId&gt;
+    &lt;TestId&gt;NUnit3x::D09D39AD-9BAE-4B14-98BF-9725FB38B12A::net8.0::JobsWebApiNUnitTests.RandomStringGeneratorHelperUnitTests&lt;/TestId&gt;
+    &lt;TestId&gt;NUnit3x::D09D39AD-9BAE-4B14-98BF-9725FB38B12A::net8.0::JobsWebApiNUnitTests.ProcessingServiceUnitTests&lt;/TestId&gt;
+    &lt;TestId&gt;NUnit3x::D09D39AD-9BAE-4B14-98BF-9725FB38B12A::net8.0::JobsWebApiNUnitTests.ApiKeyServiceUnitTests&lt;/TestId&gt;
+    &lt;TestId&gt;NUnit3x::D09D39AD-9BAE-4B14-98BF-9725FB38B12A::net8.0::JobsWebApiNUnitTests.PostgresApiKeyStorageServiceProviderUnitTests&lt;/TestId&gt;
+  &lt;/TestAncestor&gt;
+&lt;/SessionState&gt;</s:String>
+	
+	<s:String x:Key="/Default/Environment/UnitTesting/UnitTestSessionStore/Sessions/=44a3e1ad_002D1dab_002D4a4b_002D95df_002D35386992c687/@EntryIndexedValue">&lt;SessionState ContinuousTestingMode="0" Name="ProcessingServiceCreateVacancyTest" xmlns="urn:schemas-jetbrains-com:jetbrains-ut-session"&gt;
+  &lt;Project Location="/home/jupiter/RiderProjects/JobProject/JobsWebApiNUnitTests" Presentation="&amp;lt;JobsWebApiNUnitTests&amp;gt;" /&gt;
+&lt;/SessionState&gt;</s:String>
+	<s:String x:Key="/Default/Environment/UnitTesting/UnitTestSessionStore/Sessions/=562a5017_002D3330_002D4506_002Db867_002D1eb9c89c5102/@EntryIndexedValue">&lt;SessionState ContinuousTestingMode="0" Name="AddAndGetApiKeyTest" xmlns="urn:schemas-jetbrains-com:jetbrains-ut-session"&gt;
+  &lt;Project Location="/home/jupiter/RiderProjects/JobProject/Jobs.CoreAndWebApi.NUnitTests" Presentation="&amp;lt;UnitTests&amp;gt;\&amp;lt;Jobs.CoreAndWebApi.NUnitTests&amp;gt;" /&gt;
+&lt;/SessionState&gt;</s:String>
+	<s:String x:Key="/Default/Environment/UnitTesting/UnitTestSessionStore/Sessions/=706fdc5f_002D40e7_002D48f8_002D850f_002D3736dcf483c1/@EntryIndexedValue">&lt;SessionState ContinuousTestingMode="0" IsActive="True" Name="AddApiKeyTest" xmlns="urn:schemas-jetbrains-com:jetbrains-ut-session"&gt;
+  &lt;Project Location="/home/jupiter/RiderProjects/JobProject/Jobs.CoreAndWebApi.NUnitTests" Presentation="&amp;lt;UnitTests&amp;gt;\&amp;lt;Jobs.CoreAndWebApi.NUnitTests&amp;gt;" /&gt;
+&lt;/SessionState&gt;</s:String>
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	</wpf:ResourceDictionary>
