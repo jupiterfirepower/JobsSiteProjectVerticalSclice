@@ -1,8 +1,11 @@
 using System.Reflection;
-using Jobs.ReferenceApi.Contracts;
+using Jobs.Core.Contracts;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
-namespace Jobs.ReferenceApi.Extensions;
+namespace Jobs.Core.Extentions;
 
 public static class AutoRegistry
 {
@@ -38,4 +41,3 @@ public static class AutoRegistry
         return app;
     }
 }
-

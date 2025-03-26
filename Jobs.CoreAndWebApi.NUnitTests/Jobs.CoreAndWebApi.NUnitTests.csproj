@@ -17,7 +17,7 @@
         <PackageReference Include="DuckDB.NET.Data.Full" Version="1.2.1" />
         <PackageReference Include="FirebirdSql.Data.FirebirdClient" Version="10.3.2" />
         <PackageReference Include="FluentValidation" Version="11.10.0" />
-        <PackageReference Include="MediatR" Version="12.4.0" />
+        <PackageReference Include="MediatR" Version="12.4.1" />
         <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="8.0.8" />
         <PackageReference Include="Microsoft.AspNetCore.RateLimiting" Version="7.0.0-rc.2.22476.2" />
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0"/>

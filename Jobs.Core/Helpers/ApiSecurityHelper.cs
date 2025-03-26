@@ -1,7 +1,8 @@
 using Jobs.Common.Constants;
 using Jobs.Core.Contracts;
+using Microsoft.AspNetCore.Http;
 
-namespace Jobs.ReferenceApi.Helpers;
+namespace Jobs.Core.Helpers;
 
 public static class ApiSecurityHelper
 {

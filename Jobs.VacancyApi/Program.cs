@@ -22,12 +22,12 @@ using Jobs.DTO.In;
 using Jobs.Entities.Models;
 using Jobs.VacancyApi.Contracts;
 using Jobs.VacancyApi.Data;
-using Jobs.VacancyApi.Features.Commands;
+//using Jobs.VacancyApi.Features.Commands;
 using Jobs.VacancyApi.Features.Notifications;
-using Jobs.VacancyApi.Features.Queries;
+using Jobs.VacancyApi.Features.Vacancies;
+//using Jobs.VacancyApi.Features.Queries;
 using Jobs.VacancyApi.Middleware;
 using Jobs.VacancyApi.Repository;
-using Jobs.VacancyApi.Services;
 using MediatR;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -71,17 +71,17 @@ try
         .Bind(cryptOptions);
 
     builder.Services.AddScoped<IGenericRepository<Vacancy>, VacancyRepository>();
-    //builder.Services.AddScoped<IGenericRepository<WorkType>, WorkTypeRepository>();
-    //builder.Services.AddScoped<IGenericRepository<EmploymentType>, EmploymentTypeRepository>();
-    //builder.Services.AddScoped<IGenericRepository<Category>, CategoryRepository>();
-    builder.Services.AddScoped<IMiniGenericRepository<VacancyWorkTypes>, VacancyWorkTypesRepository>();
-    builder.Services.AddScoped<IMiniGenericRepository<VacancyEmploymentTypes>, VacancyEmploymentTypesRepository>();
     
+    builder.Services.AddScoped<GetVacancies.IVacanciesService, GetVacancies.VacanciesService>();
+    builder.Services.AddScoped<GetVacancy.IVacancyService, GetVacancy.GetVacancyService>();
+    builder.Services.AddScoped<CreateVacancy.ICreateVacancyService, CreateVacancy.CreateVacancyService>();
+    builder.Services.AddScoped<UpdateVacancy.IUpdateVacancyService, UpdateVacancy.UpdateVacancyService>();
+    builder.Services.AddScoped<DeleteVacancy.IDeleteVacancyService, DeleteVacancy.DeleteVacancyService>();
     
     builder.Services.AddScoped<IApiKeyStorageServiceProvider, MemoryApiKeyStorageServiceProvider>();
     builder.Services.AddScoped<IApiKeyManagerServiceProvider, ApiKeyManagerServiceProvider>();
     builder.Services.AddScoped<ISecretApiKeyRepository, SecretApiKeyRepository>();
-    builder.Services.AddScoped<IProcessingService, ProcessingService>();
+
     builder.Services.AddScoped<IApiKeyService, ApiKeyService>();
     builder.Services.AddScoped<IEncryptionService, NaiveEncryptionService>(p => 
         p.ResolveWith<NaiveEncryptionService>(Convert.FromBase64String(cryptOptions.PKey), Convert.FromBase64String(cryptOptions.IV)));
@@ -90,8 +90,9 @@ try
         p.ResolveWith<SecretApiService>(vacancySecretKey));
     
 
-//builder.Services.AddAutoMapper(Assembly.GetEntryAssembly()); // AutoMapper registration
+    //builder.Services.AddAutoMapper(Assembly.GetEntryAssembly()); // AutoMapper registration
     builder.Services.AddAutoMapper(Assembly.GetExecutingAssembly()); // AutoMapper registration
+    //builder.Services.AddAutoMapper(typeof(GetVacancies.GetVacanciesProfile));
     builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly()));
 
     builder.Services.ConfigureHttpJsonOptions(options =>
@@ -153,6 +154,8 @@ try
             build.AllowAnyHeader();
         });
     });
+    
+    builder.Services.AddEndpoints(typeof(Program).Assembly);
 
     var app = builder.Build();
     
@@ -162,6 +165,20 @@ try
     
     // Global Exception Handler.
     app.UseExceptionHandler();
+    
+    var version1 = new ApiVersion(1);
+
+    var apiVersionSet = app.NewApiVersionSet()
+        .HasApiVersion(version1)
+        //.HasApiVersion(new ApiVersion(2))
+        .ReportApiVersions()
+        .Build();
+
+    RouteGroupBuilder versionedGroup = app
+        .MapGroup("api/v{version:apiVersion}")
+        .WithApiVersionSet(apiVersionSet);
+
+    app.MapEndpoints(versionedGroup);
     
    
 // Configure the HTTP request pipeline.
@@ -258,469 +275,6 @@ try
         await next.Invoke();
     });
 
-    var version1 = new ApiVersion(1);
-
-    var apiVersionSet = app.NewApiVersionSet()
-        .HasApiVersion(version1)
-        //.HasApiVersion(new ApiVersion(2))
-        .ReportApiVersions()
-        .Build();
-    
-    bool IsBadRequest(IHttpContextAccessor httpContextAccessor, 
-        IEncryptionService cryptService,
-        ISignedNonceService signedNonceService,
-        IApiKeyService service,
-        string apiKey, 
-        string signedNonce,
-        string apiSecret)
-    {
-        if (!UserAgentConstant.AppUserAgent.Equals(httpContextAccessor.HttpContext?.Request.Headers.UserAgent))
-        {
-            return true;
-        }
-        
-        var (longNonce ,resultParse) = signedNonceService.IsSignedNonceValid(signedNonce);
-
-        if (builder.Environment.IsDevelopment())
-        {
-            longNonce = DateTime.UtcNow.Ticks;
-        }
-
-        if (!resultParse)
-        {
-            return true;
-        }
-            
-        // apiKey must be in Base64
-        var realApiKey = cryptService.Decrypt(apiKey);
-        var realApiSecret = cryptService.Decrypt(apiSecret);
-            
-        if (!service.IsValid(realApiKey, longNonce, realApiSecret))
-        {
-            return true;
-        }
-
-        return false;
-    }
-   
-    void Guards(ISender mediatr, IApiKeyService service,
-        IEncryptionService cryptService, ISignedNonceService signedNonceService,
-        IHttpContextAccessor httpContextAccessor)
-    {
-        ArgumentNullException.ThrowIfNull(mediatr, nameof(mediatr));
-        ArgumentNullException.ThrowIfNull(service, nameof(service));
-        ArgumentNullException.ThrowIfNull(cryptService, nameof(cryptService));
-        ArgumentNullException.ThrowIfNull(signedNonceService, nameof(signedNonceService));
-        ArgumentNullException.ThrowIfNull(httpContextAccessor, nameof(httpContextAccessor));
-    }
-    
-    // Create the group
-    var group = app
-        .MapGroup("dict-endpoints")
-        .WithTags("DB Dictionary Endpoints");
-    
-    /*app.MapGet("api/v{version:apiVersion}/categories", async Task<Results<Ok<List<CategoryDto>>, BadRequest>> (HttpContext context, 
-            [FromServices] ISender mediatr, 
-            [FromServices] IApiKeyService service, 
-            [FromServices] IEncryptionService cryptService,
-            [FromServices] ISignedNonceService signedNonceService,
-            [FromServices] IHttpContextAccessor httpContextAccessor,
-            [FromHeader(Name = HttpHeaderKeys.XApiHeaderKey), Required, 
-             StringLength(HttpHeaderKeys.XApiHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.XApiHeaderKeyMinLength)] string apiKey,
-            [FromHeader(Name = HttpHeaderKeys.SNonceHeaderKey), Required, 
-             StringLength(HttpHeaderKeys.SNonceHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.SNonceHeaderKeyMinLength)] string signedNonce,
-            [FromHeader(Name = HttpHeaderKeys.XApiSecretHeaderKey), Required, 
-             StringLength(HttpHeaderKeys.XApiSecretHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.XApiSecretHeaderKeyMinLength)] string apiSecret) =>
-        {
-            Guards(mediatr, service, cryptService, signedNonceService, httpContextAccessor);
-           
-            if (IsBadRequest(httpContextAccessor, 
-                    cryptService, signedNonceService, service, 
-                    apiKey, signedNonce, apiSecret))
-            {
-                return TypedResults.BadRequest();
-            }
-            
-            var ipAddress = context.Request.GetIpAddress();
-            Log.Information($"ClientIPAddress - {ipAddress}.");
-            
-            var items = await mediatr.Send(new ListCategoriesQuery());
-            return TypedResults.Ok(items);
-        }).WithName("GetCategories")
-        .MapApiVersion(apiVersionSet, version1)
-        .RequireRateLimiting("FixedWindow")
-        .WithOpenApi();
-    
-    app.MapGet("api/v{version:apiVersion}/employmenttypes", async Task<Results<Ok<List<EmploymentTypeDto>>, BadRequest>> (HttpContext context, 
-            [FromServices] ISender mediatr, 
-            [FromServices] IApiKeyService service, 
-            [FromServices] IEncryptionService cryptService,
-            [FromServices] ISignedNonceService signedNonceService,
-            [FromServices] IHttpContextAccessor httpContextAccessor,
-            [FromHeader(Name = HttpHeaderKeys.XApiHeaderKey), Required, 
-             StringLength(HttpHeaderKeys.XApiHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.XApiHeaderKeyMinLength)] string apiKey,
-            [FromHeader(Name = HttpHeaderKeys.SNonceHeaderKey), Required, 
-             StringLength(HttpHeaderKeys.SNonceHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.SNonceHeaderKeyMinLength)] string signedNonce,
-            [FromHeader(Name = HttpHeaderKeys.XApiSecretHeaderKey), Required, 
-             StringLength(HttpHeaderKeys.XApiSecretHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.XApiSecretHeaderKeyMinLength)] string apiSecret) =>
-        {
-            Guards(mediatr, service, cryptService, signedNonceService, httpContextAccessor);
-            
-            if (IsBadRequest(httpContextAccessor, 
-                    cryptService, signedNonceService, service, 
-                    apiKey, signedNonce, apiSecret))
-            {
-                return TypedResults.BadRequest();
-            }
-            
-            var ipAddress = context.Request.GetIpAddress();
-            Log.Information($"ClientIPAddress - {ipAddress}.");
-            
-            var items = await mediatr.Send(new ListEmploymentTypesQuery());
-            return TypedResults.Ok(items);
-        }).WithName("GetEmploymentTypes")
-        .MapApiVersion(apiVersionSet, version1)
-        .RequireRateLimiting("FixedWindow")
-        .WithOpenApi();
-    
-    app.MapGet("api/v{version:apiVersion}/employmenttypes/{id:int}", async Task<Results<Ok<EmploymentTypeDto>, BadRequest, NotFound>> (int id, 
-            HttpContext context, 
-            [FromServices] ISender mediatr, 
-            [FromServices] IApiKeyService service, 
-            [FromServices] IEncryptionService cryptService,
-            [FromServices] ISignedNonceService signedNonceService,
-            [FromServices] IHttpContextAccessor httpContextAccessor,
-            [FromHeader(Name = HttpHeaderKeys.XApiHeaderKey), Required, 
-             StringLength(HttpHeaderKeys.XApiHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.XApiHeaderKeyMinLength)] string apiKey,
-            [FromHeader(Name = HttpHeaderKeys.SNonceHeaderKey), Required, 
-             StringLength(HttpHeaderKeys.SNonceHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.SNonceHeaderKeyMinLength)] string signedNonce,
-            [FromHeader(Name = HttpHeaderKeys.XApiSecretHeaderKey), Required, 
-             StringLength(HttpHeaderKeys.XApiSecretHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.XApiSecretHeaderKeyMinLength)] string apiSecret) =>
-        {
-            Guards(mediatr, service, cryptService, signedNonceService, httpContextAccessor);
-            
-            if (IsBadRequest(httpContextAccessor, 
-                    cryptService, signedNonceService, service, 
-                    apiKey, signedNonce, apiSecret))
-            {
-                return TypedResults.BadRequest();
-            }
-            
-            var ipAddress = context.Request.GetIpAddress();
-            Log.Information($"ClientIPAddress - {ipAddress}.");
-            
-            var result = await mediatr.Send(new GetEmploymentTypeQuery(id));
-            return result != null ? TypedResults.Ok(result) : TypedResults.NotFound();
-        })
-        .AddEndpointFilter(async (context, next) =>
-        {
-            var id = context.GetArgument<int>(0);
-   
-            if (id <= 0)
-            {
-                return TypedResults.BadRequest();
-            }
-
-            return await next(context);
-        })
-        .WithName("GetEmploymentType")
-        .MapApiVersion(apiVersionSet, version1)
-        .RequireRateLimiting("FixedWindow")
-        .WithOpenApi();
-    
-    app.MapGet("api/v{version:apiVersion}/worktypes", async Task<Results<Ok<List<WorkTypeDto>>, BadRequest>> (HttpContext context, 
-            [FromServices] ISender mediatr, 
-            [FromServices] IApiKeyService service, 
-            [FromServices] IEncryptionService cryptService,
-            [FromServices] ISignedNonceService signedNonceService,
-            [FromServices] IHttpContextAccessor httpContextAccessor,
-            [FromHeader(Name = HttpHeaderKeys.XApiHeaderKey), Required, 
-             StringLength(HttpHeaderKeys.XApiHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.XApiHeaderKeyMinLength)] string apiKey,
-            [FromHeader(Name = HttpHeaderKeys.SNonceHeaderKey), Required, 
-             StringLength(HttpHeaderKeys.SNonceHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.SNonceHeaderKeyMinLength)] string signedNonce,
-            [FromHeader(Name = HttpHeaderKeys.XApiSecretHeaderKey), Required, 
-             StringLength(HttpHeaderKeys.XApiSecretHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.XApiSecretHeaderKeyMinLength)] string apiSecret) =>
-        {
-            Guards(mediatr, service, cryptService, signedNonceService, httpContextAccessor);
-            
-            if (IsBadRequest(httpContextAccessor, 
-                    cryptService, signedNonceService, service, 
-                    apiKey, signedNonce, apiSecret))
-            {
-                return TypedResults.BadRequest();
-            }
-            
-            var ipAddress = context.Request.GetIpAddress();
-            Log.Information($"ClientIPAddress - {ipAddress}.");
-            
-            var items = await mediatr.Send(new ListWorkTypesQuery());
-            return TypedResults.Ok(items);
-        }).WithName("GetWorkTypes")
-        .MapApiVersion(apiVersionSet, version1)
-        .RequireRateLimiting("FixedWindow")
-        .WithOpenApi();
-    
-    app.MapGet("api/v{version:apiVersion}/worktypes/{id:int}", async Task<Results<Ok<WorkTypeDto>, BadRequest, NotFound>> (int id, 
-            HttpContext context, 
-            [FromServices] ISender mediatr, 
-            [FromServices] IApiKeyService service, 
-            [FromServices] IEncryptionService cryptService,
-            [FromServices] ISignedNonceService signedNonceService,
-            [FromServices] IHttpContextAccessor httpContextAccessor,
-            [FromHeader(Name = HttpHeaderKeys.XApiHeaderKey), Required, 
-             StringLength(HttpHeaderKeys.XApiHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.XApiHeaderKeyMinLength)] string apiKey,
-            [FromHeader(Name = HttpHeaderKeys.SNonceHeaderKey), Required, 
-             StringLength(HttpHeaderKeys.SNonceHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.SNonceHeaderKeyMinLength)] string signedNonce,
-            [FromHeader(Name = HttpHeaderKeys.XApiSecretHeaderKey), Required, 
-             StringLength(HttpHeaderKeys.XApiSecretHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.XApiSecretHeaderKeyMinLength)] string apiSecret) =>
-        {
-            Guards(mediatr, service, cryptService, signedNonceService, httpContextAccessor);
-            
-            if (IsBadRequest(httpContextAccessor, 
-                    cryptService, signedNonceService, service, 
-                    apiKey, signedNonce, apiSecret))
-            {
-                return TypedResults.BadRequest();
-            }
-            
-            var ipAddress = context.Request.GetIpAddress();
-            Log.Information($"ClientIPAddress - {ipAddress}.");
-            
-            var result = await mediatr.Send(new GetWorkTypeQuery(id));
-            return result != null ? TypedResults.Ok(result) : TypedResults.NotFound();
-        })
-        .AddEndpointFilter(async (context, next) =>
-        {
-            var id = context.GetArgument<int>(0);
-   
-            if (id <= 0)
-            {
-                return TypedResults.BadRequest();
-            }
-
-            return await next(context);
-        })
-        .WithName("GetWorkType")
-        .MapApiVersion(apiVersionSet, version1)
-        .RequireRateLimiting("FixedWindow")
-        .WithOpenApi();*/
-
-//api/v{version:apiVersion}
-    app.MapGet("api/v{version:apiVersion}/vacancies", async Task<Results<Ok<List<VacancyDto>>, BadRequest>> (HttpContext context, 
-            [FromServices] ISender mediatr, 
-            [FromServices] IApiKeyService service, 
-            [FromServices] IEncryptionService cryptService,
-            [FromServices] ISignedNonceService signedNonceService,
-            [FromServices] IHttpContextAccessor httpContextAccessor,
-            [FromHeader(Name = HttpHeaderKeys.XApiHeaderKey), Required, 
-             StringLength(HttpHeaderKeys.XApiHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.XApiHeaderKeyMinLength)] string apiKey,
-            [FromHeader(Name = HttpHeaderKeys.SNonceHeaderKey), Required, 
-             StringLength(HttpHeaderKeys.SNonceHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.SNonceHeaderKeyMinLength)] string signedNonce,
-            [FromHeader(Name = HttpHeaderKeys.XApiSecretHeaderKey), Required, 
-             StringLength(HttpHeaderKeys.XApiSecretHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.XApiSecretHeaderKeyMinLength)] string apiSecret) =>
-        {
-            Guards(mediatr, service, cryptService, signedNonceService, httpContextAccessor);
-            
-            if (IsBadRequest(httpContextAccessor, 
-                    cryptService, signedNonceService, service, 
-                    apiKey, signedNonce, apiSecret))
-            {
-                return TypedResults.BadRequest();
-            }
-            
-            var ipAddress = context.Request.GetIpAddress();
-            Log.Information($"ClientIPAddress - {ipAddress}.");
-            
-            var products = await mediatr.Send(new ListVacanciesQuery());
-            return TypedResults.Ok(products);
-        }).WithName("GetVacancies")
-        .MapApiVersion(apiVersionSet, version1)
-        .RequireRateLimiting("FixedWindow")
-        .WithOpenApi();
-
-    app.MapGet("api/v{version:apiVersion}/vacancies/{id:int}", async Task<Results<Ok<VacancyDto>, BadRequest, NotFound>> (int id, 
-            [FromServices] ISender mediatr,
-            [FromServices] IApiKeyService service, 
-            [FromServices] IEncryptionService cryptService,
-            [FromServices] ISignedNonceService signedNonceService,
-            [FromServices] IHttpContextAccessor httpContextAccessor,
-            [FromHeader(Name = HttpHeaderKeys.XApiHeaderKey), Required, 
-             StringLength(HttpHeaderKeys.XApiHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.XApiHeaderKeyMinLength)] string apiKey,
-            [FromHeader(Name = HttpHeaderKeys.SNonceHeaderKey), Required, 
-             StringLength(HttpHeaderKeys.SNonceHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.SNonceHeaderKeyMinLength)] string signedNonce,
-            [FromHeader(Name = HttpHeaderKeys.XApiSecretHeaderKey), Required, 
-             StringLength(HttpHeaderKeys.XApiSecretHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.XApiSecretHeaderKeyMinLength)] string apiSecret) =>
-        {
-            Guards(mediatr, service, cryptService, signedNonceService, httpContextAccessor);
-            
-            if (IsBadRequest(httpContextAccessor, 
-                    cryptService, signedNonceService, service, 
-                    apiKey, signedNonce, apiSecret))
-            {
-                return TypedResults.BadRequest();
-            }
-
-            var vacancy = await mediatr.Send(new GetVacancyQuery(id));
-            return vacancy == null ? TypedResults.NotFound() : TypedResults.Ok(vacancy);
-        })
-        .AddEndpointFilter(async (context, next) =>
-        {
-            var id = context.GetArgument<int>(0);
-   
-            if (id <= 0)
-            {
-                return TypedResults.BadRequest();
-            }
-
-            return await next(context);
-        })
-        .WithName("GetVacancy")
-        .MapApiVersion(apiVersionSet, version1)
-        .RequireRateLimiting("FixedWindow")
-        .WithOpenApi();
-    
-    VacancyInDto SanitizeVacancyInDto(VacancyInDto entity) => entity with { 
-        VacancyTitle = HtmlSanitizerHelper.Sanitize(entity.VacancyTitle), 
-        VacancyDescription = HtmlSanitizerHelper.Sanitize(entity.VacancyDescription) 
-    };
-    
-    app.MapPost("api/v{version:apiVersion}/vacancies", async Task<Results<Created<VacancyDto>, BadRequest>> (VacancyInDto vacancy,
-            [FromServices] IApiKeyService service, 
-            [FromServices] IEncryptionService cryptService,
-            [FromServices] ISender mediatr, 
-            [FromServices] IPublisher publisher, 
-            [FromServices] ISignedNonceService signedNonceService,
-            [FromServices] IHttpContextAccessor httpContextAccessor,
-            [FromHeader(Name = HttpHeaderKeys.XApiHeaderKey), Required, 
-             StringLength(HttpHeaderKeys.XApiHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.XApiHeaderKeyMinLength)] string apiKey,
-            [FromHeader(Name = HttpHeaderKeys.SNonceHeaderKey), Required, 
-             StringLength(HttpHeaderKeys.SNonceHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.SNonceHeaderKeyMinLength)] string signedNonce,
-            [FromHeader(Name = HttpHeaderKeys.XApiSecretHeaderKey), Required, 
-             StringLength(HttpHeaderKeys.XApiSecretHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.XApiSecretHeaderKeyMinLength)] string apiSecret) =>
-        {
-            Guards(mediatr, service, cryptService, signedNonceService, httpContextAccessor);
-            
-            if (IsBadRequest(httpContextAccessor, 
-                    cryptService, signedNonceService, service, 
-                    apiKey, signedNonce, apiSecret))
-            {
-                return TypedResults.BadRequest();
-            }
-            
-            var sanitized = SanitizeVacancyInDto(vacancy);
-
-            var result = await mediatr.Send(new CreateVacancyCommand(sanitized));
-
-            if (0 == result.VacancyId) return TypedResults.BadRequest();
-            
-            await publisher.Publish(new VacancyCreatedNotification(result.VacancyId));
-
-            return TypedResults.Created($"/vacancies/{result.VacancyId}", result);
-        })
-        .AddEndpointFilter(async (context, next) =>
-        {
-            var vacancy = context.GetArgument<VacancyInDto>(0);
-   
-            if (vacancy.VacancyId != 0)
-            {
-                return TypedResults.BadRequest();
-            }
-
-            return await next(context);
-        })
-        .AddEndpointFilter<DtoModeValidationFilter<VacancyInDto>>()
-        .WithName("AddVacancy")
-        .MapApiVersion(apiVersionSet, version1)
-        .RequireRateLimiting("FixedWindow")
-        .WithOpenApi();
-    
-    app.MapPut("api/v{version:apiVersion}/vacancies/{id:int}", async Task<Results<BadRequest, NotFound, NoContent>>(int id, 
-            [FromBody] VacancyInDto vacancy, 
-            [FromServices] ISender mediatr,
-            [FromServices] IApiKeyService service, 
-            [FromServices] IEncryptionService cryptService,
-            [FromServices] ISignedNonceService signedNonceService,
-            [FromServices] IHttpContextAccessor httpContextAccessor,
-            [FromHeader(Name = HttpHeaderKeys.XApiHeaderKey), Required, 
-             StringLength(HttpHeaderKeys.XApiHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.XApiHeaderKeyMinLength)] string apiKey,
-            [FromHeader(Name = HttpHeaderKeys.SNonceHeaderKey), Required, 
-             StringLength(HttpHeaderKeys.SNonceHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.SNonceHeaderKeyMinLength)] string signedNonce,
-            [FromHeader(Name = HttpHeaderKeys.XApiSecretHeaderKey), Required, 
-             StringLength(HttpHeaderKeys.XApiSecretHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.XApiSecretHeaderKeyMinLength)] string apiSecret) =>
-        {
-            Guards(mediatr, service, cryptService, signedNonceService, httpContextAccessor);
-            
-            if (IsBadRequest(httpContextAccessor, cryptService, 
-                    signedNonceService, service, apiKey, signedNonce, apiSecret))
-            {
-                return TypedResults.BadRequest();
-            }
-
-            var sanitized = SanitizeVacancyInDto(vacancy);
-
-            var result = await mediatr.Send(new UpdateVacancyCommand(sanitized));
-
-            return result > 0 ? TypedResults.NoContent() : TypedResults.NotFound();
-        })
-        .AddEndpointFilter(async (context, next) =>
-        {
-            var id = context.GetArgument<int>(0);
-            var vacancy = context.GetArgument<VacancyInDto>(1);
-   
-            if (id <= 0 || id != vacancy.VacancyId)
-            {
-                return TypedResults.BadRequest();
-            }
-
-            return await next(context);
-        })
-        .AddEndpointFilter<DtoModeValidationFilter<VacancyInDto>>()
-        .WithName("ChangeVacancy")
-        .MapApiVersion(apiVersionSet, version1)
-        .RequireRateLimiting("FixedWindow")
-        .WithOpenApi();
-
-    app.MapDelete("api/v{version:apiVersion}/vacancies/{id:int}",  async Task<Results<BadRequest, NotFound, NoContent>> (int id, 
-            [FromServices] ISender mediatr,
-            [FromServices] IApiKeyService service, 
-            [FromServices] IEncryptionService cryptService,
-            [FromServices] ISignedNonceService signedNonceService,
-            [FromServices] IHttpContextAccessor httpContextAccessor,
-            [FromHeader(Name = HttpHeaderKeys.XApiHeaderKey), Required, 
-             StringLength(HttpHeaderKeys.XApiHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.XApiHeaderKeyMinLength)] string apiKey,
-            [FromHeader(Name = HttpHeaderKeys.SNonceHeaderKey), Required, 
-             StringLength(HttpHeaderKeys.SNonceHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.SNonceHeaderKeyMinLength)] string signedNonce,
-            [FromHeader(Name = HttpHeaderKeys.XApiSecretHeaderKey), Required, 
-             StringLength(HttpHeaderKeys.XApiSecretHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.XApiSecretHeaderKeyMinLength)] string apiSecret) =>
-        {
-            Guards(mediatr, service, cryptService, signedNonceService, httpContextAccessor);
-            
-            if (IsBadRequest(httpContextAccessor, 
-                    cryptService, signedNonceService, service, 
-                    apiKey, signedNonce, apiSecret))
-            {
-                return TypedResults.BadRequest();
-            }
-
-            var result = await mediatr.Send(new DeleteVacancyCommand(id));
-            return result == -1 ? TypedResults.NotFound() : TypedResults.NoContent();
-        })
-        .AddEndpointFilter(async (context, next) =>
-        {
-            var id = context.GetArgument<int>(0);
-   
-            if (id <= 0)
-            {
-                return TypedResults.BadRequest();
-            }
-
-            return await next(context);
-        })
-        .WithName("RemoveVacancy")
-        .MapApiVersion(apiVersionSet, version1)
-        .RequireRateLimiting("FixedWindow")
-        .WithOpenApi();
-    
     app.UseSerilogRequestLogging();
 
     app.Run();

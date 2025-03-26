@@ -20,6 +20,14 @@ public static class WorkTypes
 {
     public record QueryList : IRequest<List<WorkTypeDto>>;
     
+    public class MapperProfile : Profile
+    {
+        public MapperProfile()
+        {
+            CreateMap<WorkTypeDto, WorkType>().ReverseMap();
+        }
+    }
+    
     public class WorkTypeEndpoint : IEndpoint
     {
         public void MapEndpoint(IEndpointRouteBuilder app)
@@ -73,7 +81,7 @@ public static class WorkTypes
         ICacheService cacheService, 
         IMapper mapper) : BaseProcessingService(mapper), IWorkTypeService
     {
-        private readonly IMapper _mapper = mapper;
+        //private readonly IMapper _mapper = mapper;
 
         public async Task<List<WorkTypeDto>> GetWorkTypesAsync()
         {

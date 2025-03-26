@@ -6,10 +6,10 @@ using Jobs.Common.Contracts;
 using Jobs.Common.Extentions;
 using Jobs.Core.Contracts;
 using Jobs.Core.Extentions;
+using Jobs.Core.Helpers;
 using Jobs.DTO;
 using Jobs.Entities.Models;
 using Jobs.ReferenceApi.Contracts;
-using Jobs.ReferenceApi.Helpers;
 using Jobs.ReferenceApi.Services;
 using MediatR;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -56,10 +56,10 @@ public static class Categories
                     [FromHeader(Name = HttpHeaderKeys.XApiSecretHeaderKey), Required, 
                      StringLength(HttpHeaderKeys.XApiSecretHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.XApiSecretHeaderKeyMinLength)] string apiSecret) =>
                 {
-                    //GuardsHelper.Guards(mediatr, service, cryptService, signedNonceService, httpContextAccessor);
+                    /*GuardsHelper.Guards(mediatr, service, cryptService, signedNonceService, httpContextAccessor);
                     Console.WriteLine("Start Get Categories.");
            
-                    /*if (ApiSecurityHelper.IsBadRequest(httpContextAccessor, 
+                    if (ApiSecurityHelper.IsBadRequest(httpContextAccessor, 
                             cryptService, signedNonceService, service, 
                             apiKey, signedNonce, apiSecret))
                     {

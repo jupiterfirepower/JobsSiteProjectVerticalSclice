@@ -23,7 +23,6 @@ using Jobs.DTO.In;
 using Jobs.Entities.Models;
 using Jobs.ReferenceApi.Contracts;
 using Jobs.ReferenceApi.Data;
-using Jobs.ReferenceApi.Extensions;
 using Jobs.ReferenceApi.Features.Categories;
 using Jobs.ReferenceApi.Features.EmploymentTypes;
 //using Jobs.ReferenceApi.Features.Queries;
@@ -198,7 +197,7 @@ try
         app.UseSwaggerUI();
     }
 
-// Get the Automapper, we can share this too
+    // Get the Automapper, we can share this too
     var mapper = app.Services.GetService<IMapper>();
     if (mapper == null)
     {

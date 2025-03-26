@@ -22,6 +22,14 @@ public static class EmploymentTypes
 
     public record Result(List<EmploymentTypeDto> Data);
     
+    public class MapperProfile : Profile
+    {
+        public MapperProfile()
+        {
+            CreateMap<EmploymentTypeDto, EmploymentType>().ReverseMap();
+        }
+    }
+    
     public class EmploymentTypeEndpoint : IEndpoint
     {
         public void MapEndpoint(IEndpointRouteBuilder app)

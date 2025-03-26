@@ -1,4 +1,6 @@
-namespace Jobs.ReferenceApi.Contracts;
+using Microsoft.AspNetCore.Routing;
+
+namespace Jobs.Core.Contracts;
 
 public interface IEndpoint
 {

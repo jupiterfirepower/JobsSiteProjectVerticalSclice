@@ -1,7 +1,8 @@
 using Jobs.Core.Contracts;
 using MediatR;
+using Microsoft.AspNetCore.Http;
 
-namespace Jobs.ReferenceApi.Helpers;
+namespace Jobs.Core.Helpers;
 
 public static class GuardsHelper
 {
