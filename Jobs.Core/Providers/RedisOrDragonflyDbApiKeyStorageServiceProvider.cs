@@ -18,14 +18,29 @@ public class RedisOrDragonflyDbApiKeyStorageServiceProvider(IDistributedCache ca
         if (apiKey == null)
             return false;
         
-        if (result && !apiKey.Expiration.HasValue)
+        /*if (result && !apiKey.Expiration.HasValue)
         {
             return true;
-        }
+        }*/
 
         if (result && apiKey.Expiration.HasValue && apiKey.Expiration >= DateTime.UtcNow)
         {
             Task.Run(async () => await cache.RemoveAsync(key));
+            return true;
+        }
+
+        return false;
+    }
+    
+    public bool IsDefaultKeyValid(string key)
+    {
+        var result = cache.TryGetValue(key, out ApiKey apiKey);
+        
+        if (apiKey == null)
+            return false;
+        
+        if (result && !apiKey.Expiration.HasValue)
+        {
             return true;
         }
 

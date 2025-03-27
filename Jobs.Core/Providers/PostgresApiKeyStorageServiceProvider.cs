@@ -18,6 +18,18 @@ public class PostgresApiKeyStorageServiceProvider(IApiKeyStoreRepositoryExtended
 
         return false;
     }
+    
+    public bool IsDefaultKeyValid(string key)
+    {
+        var current = repository.Get(key);
+        
+        if (current != null && !current.Expiration.HasValue)
+        {
+            return true;
+        }
+
+        return false;
+    }
 
     public void AddApiKey(ApiKey item)
     {

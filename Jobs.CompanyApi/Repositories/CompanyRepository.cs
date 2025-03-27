@@ -1,7 +1,7 @@
 using System.Linq.Expressions;
 using Jobs.Common.Contracts;
 using Jobs.Common.Options;
-using Jobs.CompanyApi.DBContext;
+using Jobs.CompanyApi.DbContext;
 using Jobs.Entities.Models;
 using Microsoft.EntityFrameworkCore;
 

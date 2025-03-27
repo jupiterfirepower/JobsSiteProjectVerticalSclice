@@ -1,4 +1,4 @@
-using Jobs.CompanyApi.DBContext;
+using Jobs.CompanyApi.DbContext;
 using Jobs.Entities.Models;
 using Microsoft.EntityFrameworkCore;
 

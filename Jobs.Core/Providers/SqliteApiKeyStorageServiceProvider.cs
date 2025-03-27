@@ -9,11 +9,11 @@ namespace Jobs.Core.Providers;
 public class SqliteApiKeyStorageServiceProvider: IApiKeyStorageServiceProvider
 {
     private const string SqliteConnectionString = "Data Source=apikeys;Mode=Memory;Cache=Shared";
-    
-    public bool IsKeyValid(string key)
+
+    private (long, string) GetApiKeyFromDb(SqliteConnection connection, string key)
     {
-        using var connection = new SqliteConnection(SqliteConnectionString);
-        connection.Open();
+        //using var connection = new SqliteConnection(SqliteConnectionString);
+        //connection.Open();
         
         using var commandGetExpired = connection.CreateCommand();
         commandGetExpired.CommandText = "SELECT Expired, Count(*) as Count FROM ApiKeys WHERE ApiKey = @ApiKey;";
@@ -36,6 +36,37 @@ public class SqliteApiKeyStorageServiceProvider: IApiKeyStorageServiceProvider
             }
         }
         
+        return (countValue, expiredValue);
+    }
+    
+    public bool IsKeyValid(string key)
+    {
+        using var connection = new SqliteConnection(SqliteConnectionString);
+        connection.Open();
+        
+        var (countValue, expiredValue) = GetApiKeyFromDb(connection, key);
+        
+        /*using var commandGetExpired = connection.CreateCommand();
+        commandGetExpired.CommandText = "SELECT Expired, Count(*) as Count FROM ApiKeys WHERE ApiKey = @ApiKey;";
+        commandGetExpired.Parameters.AddWithValue("@ApiKey", key);
+        string expiredValue = null;
+        long countValue = 0;
+
+        using var reader = commandGetExpired.ExecuteReader();
+        while (reader.Read())
+        {
+            if (reader["Expired"].GetType() != typeof(DBNull))
+            {
+                expiredValue = reader["Expired"].ToString();
+                countValue = (long)reader["Count"];
+            }
+            else
+            {
+                expiredValue = null;
+                countValue = (long)reader["Count"];
+            }
+        }*/
+        
         if(countValue > 0 && expiredValue == null)
         {
             return true;
@@ -51,6 +82,21 @@ public class SqliteApiKeyStorageServiceProvider: IApiKeyStorageServiceProvider
             var rowsDeleted = commandDelete.ExecuteScalar();
             Console.WriteLine($"Rows Deleted = {rowsDeleted}");
             
+            return true;
+        }
+        
+        return false;
+    }
+
+    public bool IsDefaultKeyValid(string key)
+    {
+        using var connection = new SqliteConnection(SqliteConnectionString);
+        connection.Open();
+        
+        var (countValue, expiredValue) = GetApiKeyFromDb(connection, key);
+        
+        if(countValue > 0 && expiredValue == null)
+        {
             return true;
         }
         

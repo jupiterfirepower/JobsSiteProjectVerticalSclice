@@ -93,6 +93,31 @@ public class DuckDbApiKeyStorageServiceProvider : IApiKeyStorageServiceProvider,
 
         return IsApiKeyValidWithDelete(expiredValue, key);
     }
+    
+    public bool IsDefaultKeyValid(string key)
+    {
+        Console.WriteLine($"Key = {key}");
+
+        using var commandExpCount = GetExpiredCountCommand(key);
+        
+        DateTime? expiredValue = null;
+        long countValue = 0;
+            
+        var reader = commandExpCount.ExecuteReader();
+        
+        while (reader.Read())
+        {
+            expiredValue = reader.GetDateTime(0);
+            countValue = reader.GetInt64(1);
+        }
+       
+        if(countValue > 0 && expiredValue == null)
+        {
+            return true;
+        }
+
+        return false;
+    }
 
     public async Task<bool> IsKeyValidAsync(string key)
     {

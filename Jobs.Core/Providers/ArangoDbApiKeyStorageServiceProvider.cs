@@ -4,12 +4,13 @@ using Jobs.Core.DataModel;
 
 namespace Jobs.Core.Providers;
 
-public class ArangoDbApiKeyStorageServiceProvider(IApiKeyStoreRepositoryExtended repository) : IApiKeyStorageServiceProvider
+public class ArangoDbApiKeyStorageServiceProvider(IApiKeyStoreRepositoryExtended repository)
+    : IApiKeyStorageServiceProvider
 {
     public bool IsKeyValid(string key)
     {
-         var task = Task.Run(async () => await IsKeyValidAsync(key));
-         return task.Result;
+        var task = Task.Run(async () => await IsKeyValidAsync(key));
+        return task.Result;
     }
 
     public void AddApiKey(ApiKey key)
@@ -20,18 +21,39 @@ public class ArangoDbApiKeyStorageServiceProvider(IApiKeyStoreRepositoryExtended
     public async Task<bool> IsKeyValidAsync(string key)
     {
         var current = await repository.GetAsync(key);
+
+        if (current == null)
+            return false;
+
+        if (!current.Expiration.HasValue)
+        {
+            return true;
+        }
+
+        if (current.Expiration.HasValue && current.Expiration >= DateTime.UtcNow)
+        {
+            await repository.RemoveAsync(key);
+            return true;
+        }
+
+        return false;
+    }
+
+    public bool IsDefaultKeyValid(string key)
+    {
+        var task = Task.Run(async () => await IsDefaultKeyValidAsync(key));
+        return task.Result;
+    }
+
+    private async Task<bool> IsDefaultKeyValidAsync(string key)
+    {
+        var current = await repository.GetAsync(key);
         
         if (current == null)
             return false;
         
         if (!current.Expiration.HasValue)
         {
-            return true;
-        }
-        
-        if (current.Expiration.HasValue && current.Expiration >= DateTime.UtcNow)
-        {
-            await repository.RemoveAsync(key);
             return true;
         }
 
@@ -55,8 +77,9 @@ public class ArangoDbApiKeyStorageServiceProvider(IApiKeyStoreRepositoryExtended
                 ToList().
                 ForEach(x=>
                 {
-                    repository.Remove(x.Key);
-                    //Task.Run(async () => await repository.RemoveAsync(x.Key));
+                    //repository.Remove(x.Key);
+                    var task = Task.Run(async () => await repository.RemoveAsync(x.Key));
+                    task.Wait();
                     count++;
                 });
             

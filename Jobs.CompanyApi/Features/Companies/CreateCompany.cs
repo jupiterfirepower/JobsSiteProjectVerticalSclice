@@ -13,6 +13,7 @@ using Jobs.Entities.Models;
 using MediatR;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
+using Serilog;
 
 namespace Jobs.CompanyApi.Features.Companies;
 
@@ -44,6 +45,8 @@ public static class CreateCompany
                          MinimumLength = HttpHeaderKeys.XApiSecretHeaderKeyMinLength)]
                     string apiSecret) =>
                 {
+                    Log.Information("CreateCompanyEndpoint method post.");
+                        
                     GuardsHelper.Guards(mediatr, service, cryptService, signedNonceService, httpContextAccessor);
 
                     if (ApiSecurityHelper.IsBadRequest(httpContextAccessor,

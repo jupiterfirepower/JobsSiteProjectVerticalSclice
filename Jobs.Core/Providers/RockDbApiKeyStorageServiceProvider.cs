@@ -13,7 +13,7 @@ public class RockDbApiKeyStorageServiceProvider(ApiKeyRockDbStore store): IApiKe
         {
             _apiKeyStore.TryGet(key, out var apiKey);
             
-            if (apiKey != null && apiKey.Expiration >= DateTime.Now)
+            if (apiKey != null && apiKey.Expiration >= DateTime.UtcNow)
             {
                 return true;
             }
@@ -21,6 +21,22 @@ public class RockDbApiKeyStorageServiceProvider(ApiKeyRockDbStore store): IApiKe
 
         return false;
     }
+    
+    public bool IsDefaultKeyValid(string key)
+    {
+        if (_apiKeyStore.HasKey(key))
+        {
+            _apiKeyStore.TryGet(key, out var apiKey);
+            
+            if (apiKey is { Expiration: null })
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+    
     public async Task<bool> IsKeyValidAsync(string key)
     {
         var result = IsKeyValid(key);

@@ -36,6 +36,21 @@ public class MemoryApiKeyStorageServiceProvider : IApiKeyStorageServiceProvider
 
         return false;
     }
+    
+    public bool IsDefaultKeyValid(string key)
+    {
+        var apiKey = _cache.Get(key);
+        
+        if (apiKey == null)
+            return false;
+        
+        if (!apiKey.Expiration.HasValue)
+        {
+            return true;
+        }
+
+        return false;
+    }
 
     public void AddApiKey(ApiKey key) => _cache.Add(key.Key, key);
 
@@ -59,9 +74,9 @@ public class MemoryApiKeyStorageServiceProvider : IApiKeyStorageServiceProvider
             int count = 0;
         
             _cache.GetAll().
-                Where(x=> x.Expiration.HasValue && x.Expiration.Value < DateTime.UtcNow).
-                ToList().
-                ForEach(x=>
+                Where(x=> x.Expiration.HasValue && x.Expiration.Value < DateTime.UtcNow)
+                .ToList()
+                .ForEach(x=>
                 {
                     _cache.Remove(x.Key);
                     count++;

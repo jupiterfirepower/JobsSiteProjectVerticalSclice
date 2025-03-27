@@ -30,6 +30,16 @@ public class ApiKeyService(IApiKeyManagerServiceProvider managerServiceProvider,
         return managerServiceProvider.IsKeyValid(apiKey);
     }
     
+    public bool IsValidTrustApiKey(string apiKey)
+    {
+        if (string.IsNullOrEmpty(apiKey) ) //|| 
+            //(!string.IsNullOrEmpty(apiKey) && apiKey.Length > 64) ||
+            //(!string.IsNullOrEmpty(apiKey) && apiKey.Length < 20))
+            return false;
+        
+        return managerServiceProvider.IsDefaultKeyValid(apiKey);
+    }
+    
     public bool IsNonceValid(long nonce)
     {
         var diff = DateTime.UtcNow.Ticks - nonce;
@@ -43,6 +53,10 @@ public class ApiKeyService(IApiKeyManagerServiceProvider managerServiceProvider,
     private bool IsSecretApiKeyValid(string realSecretApiKey) => secretService.SecretApi.Equals(realSecretApiKey);
     
     public bool IsValid(string apiKey, long nonce, string realSecretApiKey) => IsValidApiKey(apiKey) 
+                                                                               && IsNonceValid(nonce) 
+                                                                               && IsSecretApiKeyValid(realSecretApiKey);
+    
+    public bool IsTrustValid(string apiKey, long nonce, string realSecretApiKey) => IsValidTrustApiKey(apiKey) 
                                                                                && IsNonceValid(nonce) 
                                                                                && IsSecretApiKeyValid(realSecretApiKey);
     

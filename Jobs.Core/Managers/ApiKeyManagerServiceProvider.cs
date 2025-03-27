@@ -6,6 +6,8 @@ namespace Jobs.Core.Managers;
 public class ApiKeyManagerServiceProvider(IApiKeyStorageServiceProvider backendProvider) : IApiKeyManagerServiceProvider
 {
     public bool IsKeyValid(string key) => backendProvider.IsKeyValid(key);
+    
+    public bool IsDefaultKeyValid(string key) => backendProvider.IsDefaultKeyValid(key);
 
     public void AddApiKey(ApiKey key) => backendProvider.AddApiKey(key);
 
