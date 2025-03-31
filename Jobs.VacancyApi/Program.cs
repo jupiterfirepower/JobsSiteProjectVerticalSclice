@@ -156,6 +156,8 @@ try
     });
     
     builder.Services.AddEndpoints(typeof(Program).Assembly);
+    
+    builder.Services.AddHealthChecks();
 
     var app = builder.Build();
     
@@ -227,6 +229,9 @@ try
     
 
     app.UseRateLimiter();
+    
+    //HealthCheck Middleware
+    app.MapHealthChecks("/api/health");
 
 // Ensure database is created during application startup
     using (var scope = app.Services.CreateScope())

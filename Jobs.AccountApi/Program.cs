@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 using OpenTelemetry.Resources;
 using Serilog;
 using AutoMapper;
+using Jobs.AccountApi.Features.Keycloak;
 using Jobs.Common.Constants;
 using Jobs.Common.Extentions;
 using Jobs.Common.Options;
@@ -18,6 +19,7 @@ using Jobs.Core.Contracts.Providers;
 using Jobs.Core.DataModel;
 using Jobs.Core.Extentions;
 using Jobs.Core.Handlers;
+using Jobs.Core.Helpers;
 using Jobs.Core.Managers;
 using Jobs.Core.Middleware;
 using Jobs.Core.Observability.Options;
@@ -134,7 +136,13 @@ storage.AddApiKey(new ApiKey{ Key = accountApiKey, Expiration = null });
 
 builder.Services.AddScoped<IApiKeyStorageServiceProvider, MemoryApiKeyStorageServiceProvider>();
 builder.Services.AddScoped<IApiKeyManagerServiceProvider, ApiKeyManagerServiceProvider>();
-builder.Services.AddScoped<IKeycloakAccountService, KeycloakAccountService>();
+
+//builder.Services.AddScoped<IKeycloakAccountService, KeycloakAccountService>();
+builder.Services.AddScoped<Login.IKeycloakLoginService, Login.KeycloakLoginService>();
+builder.Services.AddScoped<Logout.IKeycloakLogoutService, Logout.KeycloakLogoutService>();
+builder.Services.AddScoped<RefreshToken.IKeycloakRefreshTokenService, RefreshToken.KeycloakRefreshTokenService>();
+builder.Services.AddScoped<Register.IKeycloakRegisterService, Register.KeycloakRegisterService>();
+
 builder.Services.AddScoped<IApiKeyService, ApiKeyService>();
 builder.Services.AddScoped<IEncryptionService, NaiveEncryptionService>(p => 
     p.ResolveWith<NaiveEncryptionService>(Convert.FromBase64String(cryptOptions.PKey), Convert.FromBase64String(cryptOptions.IV)));
@@ -202,7 +210,22 @@ builder.Services.AddCors(options =>
     });
 });
 
+builder.Services.AddEndpoints(typeof(Program).Assembly);
+
 var app = builder.Build();
+
+var version1 = new ApiVersion(1);
+
+var apiVersionSet = app.NewApiVersionSet()
+    .HasApiVersion(version1)
+    .ReportApiVersions()
+    .Build();
+
+RouteGroupBuilder versionedGroup = app
+    .MapGroup("api/v{version:apiVersion}")
+    .WithApiVersionSet(apiVersionSet);
+
+app.MapEndpoints(versionedGroup);
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -247,51 +270,6 @@ app.Use(async (context, next) =>
 
 app.UseCors();
 
-var version1 = new ApiVersion(1);
-
-var apiVersionSet = app.NewApiVersionSet()
-    .HasApiVersion(version1)
-    //.HasApiVersion(new ApiVersion(2))
-    .ReportApiVersions()
-    .Build();
-
-bool IsBadRequest(IHttpContextAccessor httpContextAccessor, 
-    IEncryptionService cryptService,
-    ISignedNonceService signedNonceService,
-    IApiKeyService service,
-    string apiKey, 
-    string signedNonce,
-    string apiSecret)
-{
-    if (!UserAgentConstant.AppUserAgent.Equals(httpContextAccessor.HttpContext?.Request.Headers.UserAgent))
-    {
-        return true;
-    }
-        
-    var (longNonce ,resultParse) = signedNonceService.IsSignedNonceValid(signedNonce);
-
-    if (builder.Environment.IsDevelopment())
-    {
-        longNonce = DateTime.UtcNow.Ticks;
-    }
-
-    if (!resultParse)
-    {
-        return true;
-    }
-            
-    // apiKey must be in Base64
-    var realApiKey = cryptService.Decrypt(apiKey);
-    var realApiSecret = cryptService.Decrypt(apiSecret);
-            
-    if (!service.IsValid(realApiKey, longNonce, realApiSecret))
-    {
-        return true;
-    }
-
-    return false;
-}
-
 app.Use(async (context, next) =>
 {
     context.Response.OnStarting(async () =>
@@ -313,167 +291,7 @@ app.Use(async (context, next) =>
     await next.Invoke();
 });
 
-app.MapPost("api/v{version:apiVersion}/login", async Task<Results<Ok<KeycloakTokenResponse>, BadRequest, NotFound>> ([FromBody] LoginUser user,
-        HttpContext context,
-        [FromServices] IKeycloakAccountService accountService,
-        [FromServices] ISender mediatr,
-        [FromServices] IPublisher publisher,
-        [FromServices] IApiKeyService service,
-        [FromServices] IEncryptionService cryptService,
-        [FromServices] ISignedNonceService signedNonceService,
-        [FromServices] IHttpContextAccessor httpContextAccessor,
-        [FromHeader(Name = HttpHeaderKeys.XApiHeaderKey), Required, 
-         StringLength(HttpHeaderKeys.XApiHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.XApiHeaderKeyMinLength)] string apiKey,
-        [FromHeader(Name = HttpHeaderKeys.SNonceHeaderKey), Required, 
-         StringLength(HttpHeaderKeys.SNonceHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.SNonceHeaderKeyMinLength)] string signedNonce,
-        [FromHeader(Name = HttpHeaderKeys.XApiSecretHeaderKey), Required, 
-         StringLength(HttpHeaderKeys.XApiSecretHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.XApiSecretHeaderKeyMinLength)] string apiSecret) =>
-    {
-        Log.Information($"UserName: {user.UserName} , Password: {user.Password}");
-        Console.WriteLine($"UserAgent - {httpContextAccessor.HttpContext?.Request.Headers.UserAgent}");
-        
-        if (IsBadRequest(httpContextAccessor, 
-                cryptService, signedNonceService, service, 
-                apiKey, signedNonce, apiSecret))
-        {
-            return TypedResults.BadRequest();
-        }
 
-        var ipAddress = context.Request.GetIpAddress();
-        Log.Information($"ClientIPAddress - {ipAddress}.");
-
-        try
-        {
-            var result = await accountService.LoginAsync(user.UserName, user.Password).ConfigureAwait(false);
-            return TypedResults.Ok(result);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine(ex.Message);
-            return TypedResults.NotFound();
-        }
-    }).WithName("Login")
-    .WithOpenApi()
-    .MapApiVersion(apiVersionSet, version1)
-    .AllowAnonymous()
-    .RequireRateLimiting("FixedWindow");
-
-app.MapPost("api/v{version:apiVersion}/logout", async Task<Results<Ok, BadRequest>> ([FromBody] LogoutUser user,
-        HttpContext context,
-        [FromServices] IHttpClientFactory httpClientFactory,
-        [FromServices] IApiKeyService service, 
-        [FromServices] IKeycloakAccountService accountService,
-        [FromServices] ISender mediatr, 
-        [FromServices] IPublisher publisher,
-        [FromServices] IEncryptionService cryptService,
-        [FromServices] ISignedNonceService signedNonceService,
-        [FromServices] IHttpContextAccessor httpContextAccessor,
-        [FromHeader(Name = HttpHeaderKeys.XApiHeaderKey), Required, 
-         StringLength(HttpHeaderKeys.XApiHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.XApiHeaderKeyMinLength)] string apiKey,
-        [FromHeader(Name = HttpHeaderKeys.SNonceHeaderKey), Required, 
-         StringLength(HttpHeaderKeys.SNonceHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.SNonceHeaderKeyMinLength)] string signedNonce,
-        [FromHeader(Name = HttpHeaderKeys.XApiSecretHeaderKey), Required, 
-         StringLength(HttpHeaderKeys.XApiSecretHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.XApiSecretHeaderKeyMinLength)] string apiSecret) =>
-    {
-        Log.Information($"User Name: {user.Username}");
-        Console.WriteLine($"UserAgent - {httpContextAccessor.HttpContext?.Request.Headers.UserAgent}");
-
-        if (IsBadRequest(httpContextAccessor, 
-                cryptService, signedNonceService, service, 
-                apiKey, signedNonce, apiSecret))
-        {
-            return TypedResults.BadRequest();
-        }
-        
-        var ipAddress = context.Request.GetIpAddress();
-        Log.Information($"ClientIPAddress - {ipAddress}.");
-        
-        //POST /admin/realms/{realm}/users/{user-id}/logout
-        var result = await accountService.LogoutAsync(user).ConfigureAwait(false);
-        
-        return result ? TypedResults.Ok() : TypedResults.BadRequest();
-    }).WithName("Logout")
-    .WithOpenApi()
-    .MapApiVersion(apiVersionSet, version1)
-    .RequireRateLimiting("FixedWindow");
-
-app.MapPost("api/v{version:apiVersion}/register", async Task<Results<Ok<RegisterUserResponse>, BadRequest>> ([FromBody] User user,
-        HttpContext context,
-        [FromServices] IApiKeyService service,
-        [FromServices] IKeycloakAccountService accountService,
-        [FromServices] ISender mediatr,
-        [FromServices] IPublisher publisher,
-        [FromServices] IEncryptionService cryptService,
-        [FromServices] ISignedNonceService signedNonceService,
-        [FromServices] IHttpContextAccessor httpContextAccessor,
-        [FromHeader(Name = HttpHeaderKeys.XApiHeaderKey), Required, 
-         StringLength(HttpHeaderKeys.XApiHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.XApiHeaderKeyMinLength)] string apiKey,
-        [FromHeader(Name = HttpHeaderKeys.SNonceHeaderKey), Required, 
-         StringLength(HttpHeaderKeys.SNonceHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.SNonceHeaderKeyMinLength)] string signedNonce,
-        [FromHeader(Name = HttpHeaderKeys.XApiSecretHeaderKey), Required, 
-         StringLength(HttpHeaderKeys.XApiSecretHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.XApiSecretHeaderKeyMinLength)] string apiSecret) =>
-    {
-        Log.Information($"User Email: {user.Email} , Password: {user.Password}");
-        Console.WriteLine($"UserAgent - {httpContextAccessor.HttpContext?.Request.Headers.UserAgent}");
-        
-        if (IsBadRequest(httpContextAccessor, 
-                cryptService, signedNonceService, service, 
-                apiKey, signedNonce, apiSecret))
-        {
-            return TypedResults.BadRequest();
-        }
-        
-        var ipAddress = context.Request.GetIpAddress();
-        Log.Information($"ClientIPAddress - {ipAddress}.");
-        
-        var result = await accountService.RegisterUser(user).ConfigureAwait(false);
-
-        return TypedResults.Ok(result);
-    }).WithName("Register")
-    .WithOpenApi()
-    .MapApiVersion(apiVersionSet, version1)
-    .AllowAnonymous()
-    .RequireRateLimiting("FixedWindow");
-
-    app.MapPost("api/v{version:apiVersion}/refresh", async Task<Results<Ok<KeycloakRespone>, BadRequest>> ([FromBody] string refreshToken,
-            HttpContext context,
-            [FromServices] IApiKeyService service,
-            [FromServices] IKeycloakAccountService accountService,
-            [FromServices] ISender mediatr,
-            [FromServices] IPublisher publisher,
-            [FromServices] IEncryptionService cryptService,
-            [FromServices] ISignedNonceService signedNonceService,
-            [FromServices] IHttpContextAccessor httpContextAccessor,
-            [FromHeader(Name = HttpHeaderKeys.XApiHeaderKey), Required, 
-             StringLength(HttpHeaderKeys.XApiHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.XApiHeaderKeyMinLength)] string apiKey,
-            [FromHeader(Name = HttpHeaderKeys.SNonceHeaderKey), Required, 
-             StringLength(HttpHeaderKeys.SNonceHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.SNonceHeaderKeyMinLength)] string signedNonce,
-            [FromHeader(Name = HttpHeaderKeys.XApiSecretHeaderKey), Required, 
-             StringLength(HttpHeaderKeys.XApiSecretHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.XApiSecretHeaderKeyMinLength)] string apiSecret) =>
-        {
-            Log.Information($"Get token by refresh token!");
-            Console.WriteLine($"UserAgent - {httpContextAccessor.HttpContext?.Request.Headers.UserAgent}");
-            Console.WriteLine($"RefreshToken - {refreshToken}");
-
-            if (IsBadRequest(httpContextAccessor,
-                    cryptService, signedNonceService, service,
-                    apiKey, signedNonce, apiSecret))
-            {
-                return TypedResults.BadRequest();
-            }
-
-            var ipAddress = context.Request.GetIpAddress();
-            Log.Information($"ClientIPAddress - {ipAddress}.");
-
-            var result = await accountService.RefreshTokenAsync(refreshToken).ConfigureAwait(false);
-
-            return TypedResults.Ok(result);
-        })
-        .WithName("Refresh")
-        .WithOpenApi()
-        .MapApiVersion(apiVersionSet, version1)
-        .AllowAnonymous()
-        .RequireRateLimiting("FixedWindow");
 
     app.UseSerilogRequestLogging();
 

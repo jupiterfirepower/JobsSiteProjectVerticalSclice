@@ -9,13 +9,9 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Jobs.VacancyApi.Features.Vacancies;
 
-public class GetApiKeyToken
+public static class GetApiKeyToken
 {
-    public record RequestGetApiKeyTokenQuery(string SecretApiKey): IRequest<string>;
-    
-    public record Result(string ApiKey);
-    
-    public class GetApiKeyTokenyEndpoint : IEndpoint
+    public class GetApiKeyTokenEndpoint : IEndpoint
     {
         public void MapEndpoint(IEndpointRouteBuilder app)
         {

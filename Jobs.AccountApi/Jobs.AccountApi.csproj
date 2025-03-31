@@ -25,6 +25,7 @@
     <ItemGroup>
       <ProjectReference Include="..\Jobs.Common\Jobs.Common.csproj" />
       <ProjectReference Include="..\Jobs.Core\Jobs.Core.csproj" />
+      <ProjectReference Include="..\Jobs.Dto\Jobs.Dto.csproj" />
       <ProjectReference Include="..\Jobs.Entities\Jobs.Entities.csproj" />
     </ItemGroup>
 

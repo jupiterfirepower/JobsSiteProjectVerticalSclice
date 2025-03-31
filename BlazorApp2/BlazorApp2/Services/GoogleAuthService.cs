@@ -14,14 +14,13 @@ public class GoogleAuthService : IGoogleAuthService
         // Form data is typically sent as key-value pairs
         var adminData = new List<KeyValuePair<string, string>>
         {
-            
-            
+            new ("client_id", "apps.googleusercontent.com"),
+            new ("client_secret", ""),
             new ("code", code),
             new ("grant_type", "authorization_code"),
             new ("access_type", "online"),
             new ("redirect_uri", "http://localhost:5047/oauth"),
             new ("scope", "https://www.googleapis.com/auth/userinfo.profile")
-            
         };
 
         // Encodes the key-value pairs for the ContentType 'application/x-www-form-urlencoded'
