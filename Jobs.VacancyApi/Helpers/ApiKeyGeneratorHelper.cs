@@ -3,7 +3,7 @@ using Jobs.Core.Helpers;
 using Konscious.Security.Cryptography;
 using PasswordGenerator;
 
-namespace Jobs.VacancyApi.KeyModels;
+namespace Jobs.VacancyApi.Helpers;
 
 public static class ApiKeyGeneratorHelper
 {

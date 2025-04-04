@@ -2,16 +2,13 @@ using System.Text.Json.Serialization;
 
 namespace Jobs.Dto.Request;
 
-public class UserDto
-{
-    [JsonPropertyName("email")]
-    public string Email { get; set; }
-    [JsonPropertyName("password")]
-    public string Password { get; set; }
-
-    [JsonPropertyName("firstname")] 
-    public string FirstName { get; set; } = null;
-    
-    [JsonPropertyName("lastname")]
-    public string LastName { get; set; } = null;
-}
+public record UserDto(
+    [property: JsonPropertyName("email")] 
+    string Email,
+    [property: JsonPropertyName("password")]
+    string Password,
+    [property: JsonPropertyName("firstname")]
+    string FirstName = "",
+    [property: JsonPropertyName("lastname")]
+    string LastName = ""
+);

@@ -1,4 +1,4 @@
-namespace Jobs.VacancyApi.KeyModels;
+namespace Jobs.VacancyApi.Helpers;
 
 public static class RandomStringGeneratorHelper
 {

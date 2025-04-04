@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text.Json;
+using AutoMapper;
 using Jobs.AccountApi.Contracts;
 using Jobs.AccountApi.Services;
 using Jobs.Common.Constants;
@@ -10,6 +11,7 @@ using Jobs.Common.Responses;
 using Jobs.Common.SerializationSettings;
 using Jobs.Core.Contracts;
 using Jobs.Core.Helpers;
+using Jobs.Dto.Request;
 using Jobs.Entities.DataModel;
 using Jobs.Entities.Responses;
 using Keycloak.Client.Models;
@@ -26,11 +28,19 @@ public static class Logout
     
     public record Results(bool Result);
     
+    public class LogoutProfile : Profile
+    {
+        public LogoutProfile()
+        {
+            CreateMap<LogoutUserDto , LogoutUser>().ReverseMap();
+        }
+    }
+    
     public class LogoutCommandEndpoint : IEndpoint
     {
         public void MapEndpoint(IEndpointRouteBuilder app)
         {
-            app.MapPost("/logout", async Task<Results<Ok, BadRequest>> ([FromBody] LogoutUser user,
+            app.MapPost("/logout", async Task<Results<Ok, BadRequest>> ([FromBody] LogoutUserDto user,
                 HttpContext context,
                 [FromServices] IHttpClientFactory httpClientFactory,
                 [FromServices] IApiKeyService service, 
@@ -40,6 +50,7 @@ public static class Logout
                 [FromServices] IEncryptionService cryptService,
                 [FromServices] ISignedNonceService signedNonceService,
                 [FromServices] IHttpContextAccessor httpContextAccessor,
+                [FromServices] IMapper mapper,
                 [FromHeader(Name = HttpHeaderKeys.XApiHeaderKey), Required, 
                  StringLength(HttpHeaderKeys.XApiHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.XApiHeaderKeyMinLength)] string apiKey,
                 [FromHeader(Name = HttpHeaderKeys.SNonceHeaderKey), Required, 
@@ -64,7 +75,8 @@ public static class Logout
                 
                 //POST /admin/realms/{realm}/users/{user-id}/logout
                 //var result = await accountService.LogoutAsync(user).ConfigureAwait(false);
-                var result = await mediatr.Send(new RequestLogoutCommand(user));
+                var logoutEntityUser = mapper.Map<LogoutUser>(user);
+                var result = await mediatr.Send(new RequestLogoutCommand(logoutEntityUser));
                 return result ? TypedResults.Ok() : TypedResults.BadRequest();
             }).WithName("Logout")
             .WithOpenApi()

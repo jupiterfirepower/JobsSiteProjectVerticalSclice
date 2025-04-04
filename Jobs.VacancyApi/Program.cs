@@ -1,38 +1,29 @@
-using System.ComponentModel.DataAnnotations;
 using System.Reflection;
 using Asp.Versioning;
 using AutoMapper;
 using Jobs.Common.Constants;
 using Jobs.Common.Contracts;
 using Jobs.Common.Extentions;
-using Jobs.Common.Helpers;
 using Jobs.Common.Options;
 using Jobs.Core.Contracts;
 using Jobs.Core.Contracts.Providers;
 using Jobs.Core.Extentions;
-using Jobs.Core.Filters;
 using Jobs.Core.Handlers;
 using Jobs.Core.Managers;
 using Jobs.Core.Middleware;
 using Jobs.Core.Observability.Options;
 using Jobs.Core.Providers;
 using Jobs.Core.Services;
-using Jobs.DTO;
-using Jobs.DTO.In;
 using Jobs.Entities.Models;
 using Jobs.VacancyApi.Contracts;
 using Jobs.VacancyApi.Data;
-//using Jobs.VacancyApi.Features.Commands;
-using Jobs.VacancyApi.Features.Notifications;
 using Jobs.VacancyApi.Features.Vacancies;
-//using Jobs.VacancyApi.Features.Queries;
 using Jobs.VacancyApi.Middleware;
 using Jobs.VacancyApi.Repository;
-using MediatR;
-using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using OpenTelemetry.Resources;
 using Serilog;
 
@@ -62,6 +53,7 @@ try
     builder.Services.AddDbContext<JobsDbContext>(options =>
         options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
     
+    // user-secret
     var vacancySecretKey = builder.Configuration["VacancyApiService:SecretKey"];
     
     CryptOptions cryptOptions = new();
@@ -89,10 +81,7 @@ try
     builder.Services.AddScoped<ISecretApiService, SecretApiService>(p => 
         p.ResolveWith<SecretApiService>(vacancySecretKey));
     
-
-    //builder.Services.AddAutoMapper(Assembly.GetEntryAssembly()); // AutoMapper registration
     builder.Services.AddAutoMapper(Assembly.GetExecutingAssembly()); // AutoMapper registration
-    //builder.Services.AddAutoMapper(typeof(GetVacancies.GetVacanciesProfile));
     builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly()));
 
     builder.Services.ConfigureHttpJsonOptions(options =>
@@ -116,22 +105,6 @@ try
         .ConfigureResource(resource => resource.AddService(observabilityOptions.ServiceName))
         .AddMetrics(observabilityOptions)
         .AddTracing(observabilityOptions);
-    /*
-    builder.Services.AddOpenTelemetry().WithMetrics(opts => opts
-        .AddAspNetCoreInstrumentation()
-        .AddRuntimeInstrumentation()
-    );
-    
-    builder.Services.AddOpenTelemetry().WithMetrics(opts => opts
-        .SetResourceBuilder(ResourceBuilder.CreateDefault().AddService("JobStore.WebApi"))
-        .AddMeter(builder.Configuration.GetValue<string>("JobsStoreMeterName"))
-        .AddAspNetCoreInstrumentation()
-        .AddRuntimeInstrumentation()
-        .AddProcessInstrumentation()
-        .AddOtlpExporter(opts =>
-        {
-            opts.Endpoint = new Uri(builder.Configuration["Otlp:Endpoint"]);
-        })); */
     
     // forward headers configuration for reverse proxy
     builder.Services.Configure<ForwardedHeadersOptions>(options => {
@@ -150,14 +123,22 @@ try
         options.AddDefaultPolicy(build => {
             build.WithOrigins("https://localhost:7111","http://localhost:5206");
             build.AllowAnyMethod();
-            //builder.WithMethods("GET", "POST", "PUT", "DELETE");
             build.AllowAnyHeader();
         });
     });
     
     builder.Services.AddEndpoints(typeof(Program).Assembly);
     
+    // Add HealthChecks
     builder.Services.AddHealthChecks();
+    builder.Services.AddHealthChecks().AddNpgSql(builder.Configuration.GetConnectionString("NpgConnection")!, 
+        name: "Postgres", failureStatus: HealthStatus.Unhealthy, tags: ["Vacancy", "Database"]);
+    
+    builder.Services.AddHealthChecks().AddDbContextCheck<JobsDbContext>(
+        "Categories check",
+        customTestQuery: (db, token) => db.Categories.AnyAsync(token),
+        tags: ["ef-db"]
+    );
 
     var app = builder.Build();
     
@@ -183,25 +164,25 @@ try
     app.MapEndpoints(versionedGroup);
     
    
-// Configure the HTTP request pipeline.
+    // Configure the HTTP request pipeline.
     if (app.Environment.IsDevelopment())
     {
         app.UseSwagger();
         app.UseSwaggerUI();
     }
 
-// Get the Automapper, we can share this too
+    // Get the Automapper, we can share this too
     var mapper = app.Services.GetService<IMapper>();
     if (mapper == null)
     {
         throw new InvalidOperationException("Mapper not found");
     }
 
-//app.UseLogHeaders(); // add here right after you create app
+    //app.UseLogHeaders(); // add here right after you create app
     app.UseExceptionHandlers();
-//app.UseSecurityHeaders();
+    //app.UseSecurityHeaders();
 
-//app.UseErrorHandler(); // add here right after you create app
+    //app.UseErrorHandler(); // add here right after you create app
 
     if (!builder.Environment.IsDevelopment())
     {
@@ -218,22 +199,16 @@ try
     app.UseRouting(); // 🔴 here it is
 
     app.UseCors();
-    /*app.UseCors(options =>
-        options
-            .WithOrigins("https://localhost:7111","http://localhost:5206")
-            .AllowAnyMethod()
-            .AllowAnyHeader());*/
-    
-//app.UseMiddleware<ErrorHandlerMiddleware>(); 
-    // Enable compression
-    
 
     app.UseRateLimiter();
     
-    //HealthCheck Middleware
-    app.MapHealthChecks("/api/health");
+    // HealthCheck Middleware
+    app.MapHealthChecks("/api/health", new HealthCheckOptions
+    {
+        AllowCachingResponses = false,
+    });
 
-// Ensure database is created during application startup
+    // Ensure database is created during application startup
     using (var scope = app.Services.CreateScope())
     {
         var dbContext = scope.ServiceProvider.GetRequiredService<JobsDbContext>();

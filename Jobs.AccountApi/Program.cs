@@ -63,7 +63,8 @@ builder.WebHost.ConfigureKestrel((context, serverOptions) =>
     
     serverOptions.ListenAnyIP(kestrelSettings.Port, listenOptions =>
     {
-        listenOptions.Protocols = HttpProtocols.Http3;
+        //listenOptions.Protocols = HttpProtocols.Http3;
+        listenOptions.Protocols = HttpProtocols.Http2;
         listenOptions.UseHttps();
     });
     
@@ -101,6 +102,7 @@ builder.Configuration
 var accountSecretKey = builder.Configuration["AccountApiService:SecretKey"];
 var accountApiKey = builder.Configuration["AccountApiService:ApiKey"];
 
+Console.WriteLine($"Guid - {Guid.NewGuid()}");
 Console.WriteLine($"AccountSecretKey - {accountSecretKey}");
 Console.WriteLine($"AccountApiKey - {accountApiKey}");
 

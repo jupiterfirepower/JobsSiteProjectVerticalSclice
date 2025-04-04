@@ -6,6 +6,7 @@ using Jobs.Common.Extentions;
 using Jobs.Core.Contracts;
 using Jobs.Core.Extentions;
 using Jobs.Core.Helpers;
+using Jobs.Dto.Request;
 using Jobs.Entities.DataModel;
 using Jobs.Entities.Responses;
 using MediatR;
@@ -17,7 +18,7 @@ namespace Jobs.AccountApi.Features.Keycloak;
 
 public static class Login
 {
-    public record RequestLoginCommand(LoginUser Login) : IRequest<KeycloakTokenResponse>;
+    public record RequestLoginCommand(LoginUserDto Login) : IRequest<KeycloakTokenResponse>;
     
     public record Results(KeycloakTokenResponse Result);
     
@@ -25,7 +26,7 @@ public static class Login
     {
         public void MapEndpoint(IEndpointRouteBuilder app)
         {
-            app.MapPost("/login", async Task<Results<Ok<KeycloakTokenResponse>, BadRequest, NotFound>> ([FromBody] LoginUser user,
+            app.MapPost("/login", async Task<Results<Ok<KeycloakTokenResponse>, BadRequest, NotFound>> ([FromBody] LoginUserDto user,
                 HttpContext context,
                 [FromServices] IKeycloakAccountService accountService,
                 [FromServices] ISender mediatr,
@@ -41,7 +42,7 @@ public static class Login
                 [FromHeader(Name = HttpHeaderKeys.XApiSecretHeaderKey), Required, 
                  StringLength(HttpHeaderKeys.XApiSecretHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.XApiSecretHeaderKeyMinLength)] string apiSecret) =>
             {
-                Log.Information($"UserName: {user.UserName} , Password: {user.Password}");
+                Log.Information($"UserName: {user.Username} , Password: {user.Password}");
                 Console.WriteLine($"UserAgent - {httpContextAccessor.HttpContext?.Request.Headers.UserAgent}");
                 
                 GuardsHelper.Guards(mediatr, service, cryptService, signedNonceService, httpContextAccessor);
@@ -116,6 +117,6 @@ public static class Login
     public class LoginKeycloakUserCommandHandler(IKeycloakLoginService service) : IRequestHandler<RequestLoginCommand, KeycloakTokenResponse>
     {
         public async Task<KeycloakTokenResponse> Handle(RequestLoginCommand command, CancellationToken cancellationToken) =>
-            await service.LoginAsync(command.Login.UserName, command.Login.Password);
+            await service.LoginAsync(command.Login.Username, command.Login.Password);
     }
 }
