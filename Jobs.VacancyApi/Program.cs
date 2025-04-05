@@ -1,6 +1,8 @@
 using System.Reflection;
 using Asp.Versioning;
 using AutoMapper;
+using HealthChecks.UI.Client;
+using HealthChecks.UI.Configuration;
 using Jobs.Common.Constants;
 using Jobs.Common.Contracts;
 using Jobs.Common.Extentions;
@@ -17,6 +19,7 @@ using Jobs.Core.Services;
 using Jobs.Entities.Models;
 using Jobs.VacancyApi.Contracts;
 using Jobs.VacancyApi.Data;
+using Jobs.VacancyApi.Extentions;
 using Jobs.VacancyApi.Features.Vacancies;
 using Jobs.VacancyApi.Middleware;
 using Jobs.VacancyApi.Repository;
@@ -26,6 +29,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using OpenTelemetry.Resources;
 using Serilog;
+using Steeltoe.Discovery.Client;
+using Steeltoe.Discovery.Consul;
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
@@ -47,7 +52,7 @@ try
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen();
-
+    
     builder.Services.AddApiVersionService();
 
     builder.Services.AddDbContext<JobsDbContext>(options =>
@@ -130,7 +135,7 @@ try
     builder.Services.AddEndpoints(typeof(Program).Assembly);
     
     // Add HealthChecks
-    builder.Services.AddHealthChecks();
+    /*builder.Services.AddHealthChecks();
     builder.Services.AddHealthChecks().AddNpgSql(builder.Configuration.GetConnectionString("NpgConnection")!, 
         name: "Postgres", failureStatus: HealthStatus.Unhealthy, tags: ["Vacancy", "Database"]);
     
@@ -138,7 +143,13 @@ try
         "Categories check",
         customTestQuery: (db, token) => db.Categories.AnyAsync(token),
         tags: ["ef-db"]
-    );
+    );*/
+    
+    // Configuring Health Check
+    builder.Services.ConfigureHealthChecks(builder.Configuration);
+    
+    // Service Discovery Consul
+    builder.Services.AddServiceDiscovery(o => o.UseConsul());
 
     var app = builder.Build();
     
@@ -203,10 +214,7 @@ try
     app.UseRateLimiter();
     
     // HealthCheck Middleware
-    app.MapHealthChecks("/api/health", new HealthCheckOptions
-    {
-        AllowCachingResponses = false,
-    });
+    app.AddHealthChecks();
 
     // Ensure database is created during application startup
     using (var scope = app.Services.CreateScope())
