@@ -11,6 +11,10 @@ builder.Services.AddSwaggerGen();
 // Add YARP reverse proxy services and load configuration from appsettings.json
 builder.Services.AddReverseProxy()
     .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
+    .ConfigureHttpClient((_, handler) =>
+    {
+        handler.AllowAutoRedirect = true;
+    })
     .AddTransforms(transforms =>
     {
         transforms.AddRequestTransform(async context =>
@@ -31,6 +35,7 @@ builder.Services.AddLogging(logging =>
     logging.AddConsole();
 });
 
+/*
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("authenticated", policy =>
@@ -44,7 +49,7 @@ builder.Services.AddRateLimiter(rateLimiterOptions =>
         options.Window = TimeSpan.FromSeconds(10);
         options.PermitLimit = 5;
     });
-});
+});*/
 
 var app = builder.Build();
 
@@ -55,11 +60,12 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+//app.UseHttpsRedirection();
 
+/*
 app.UseAuthentication();
 app.UseAuthorization();
-app.UseRateLimiter();
+app.UseRateLimiter();*/
 
 // Map the reverse proxy routes
 app.MapReverseProxy();

@@ -1,20 +1,24 @@
 using System.Reflection;
 using Asp.Versioning;
 using AutoMapper;
+using DotNetEnv;
 using HealthChecks.UI.Client;
 using HealthChecks.UI.Configuration;
 using Jobs.Common.Constants;
 using Jobs.Common.Contracts;
 using Jobs.Common.Extentions;
 using Jobs.Common.Options;
+using Jobs.Common.Settings;
 using Jobs.Core.Contracts;
 using Jobs.Core.Contracts.Providers;
+using Jobs.Core.DataModel;
 using Jobs.Core.Extentions;
 using Jobs.Core.Handlers;
 using Jobs.Core.Managers;
 using Jobs.Core.Middleware;
 using Jobs.Core.Observability.Options;
 using Jobs.Core.Providers;
+using Jobs.Core.Providers.Vault;
 using Jobs.Core.Services;
 using Jobs.Entities.Models;
 using Jobs.VacancyApi.Contracts;
@@ -60,6 +64,22 @@ try
     
     // user-secret
     var vacancySecretKey = builder.Configuration["VacancyApiService:SecretKey"];
+    Console.WriteLine($"vacancySecretKey: {vacancySecretKey}");
+    var vacancyServiceDefApiKey = builder.Configuration["VacancyApiService:DefaultApiKey"];
+    
+    // Load environment variables from the .env file
+    Env.Load();
+    Env.TraversePath().Load();
+    
+    var vaultUri = Environment.GetEnvironmentVariable("VAULT_ADDR");
+    var vaultToken = Environment.GetEnvironmentVariable("VAULT_TOKEN");
+
+    var vaultSecretsProvider = new VaultSecretProvider(vaultUri, vaultToken );
+
+    /*var vaultSecretKey = await vaultSecretsProvider.GetSecretValueAsync("secrets/services/vacancy", "SecretKey", "secrets");
+    Console.WriteLine($"vaultSecretKey: {vaultSecretKey}");
+    var vaultDefaultApiKey = await vaultSecretsProvider.GetSecretValueAsync("secrets/services/vacancy", "DefaultApiKey", "secrets");
+    Console.WriteLine($"vaultDefaultApiKey: {vaultDefaultApiKey}");*/
     
     CryptOptions cryptOptions = new();
 
@@ -76,9 +96,13 @@ try
     builder.Services.AddScoped<DeleteVacancy.IDeleteVacancyService, DeleteVacancy.DeleteVacancyService>();
     
     builder.Services.AddScoped<IApiKeyStorageServiceProvider, MemoryApiKeyStorageServiceProvider>();
-    builder.Services.AddScoped<IApiKeyManagerServiceProvider, ApiKeyManagerServiceProvider>();
+    builder.Services.AddScoped<IApiKeyManagerServiceProvider, ApiKeyManagerServiceProvider>(p =>
+    {
+        var currentService = p.ResolveWith<ApiKeyManagerServiceProvider>();
+        currentService.AddApiKey(new ApiKey { Key = vacancyServiceDefApiKey, Expiration = null });
+        return currentService;
+    });
     builder.Services.AddScoped<ISecretApiKeyRepository, SecretApiKeyRepository>();
-
     builder.Services.AddScoped<IApiKeyService, ApiKeyService>();
     builder.Services.AddScoped<IEncryptionService, NaiveEncryptionService>(p => 
         p.ResolveWith<NaiveEncryptionService>(Convert.FromBase64String(cryptOptions.PKey), Convert.FromBase64String(cryptOptions.IV)));
@@ -123,10 +147,16 @@ try
     builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
     builder.Services.AddProblemDetails();
     
+    CorsSettings corsSettings = new();
+
+    builder.Configuration
+        .GetRequiredSection(nameof(CorsSettings))
+        .Bind(corsSettings);
+    
     builder.Services.AddCors(options =>
     {
         options.AddDefaultPolicy(build => {
-            build.WithOrigins("https://localhost:7111","http://localhost:5206");
+            build.WithOrigins(corsSettings.CorsAllowedOrigins);
             build.AllowAnyMethod();
             build.AllowAnyHeader();
         });
@@ -150,6 +180,16 @@ try
     
     // Service Discovery Consul
     builder.Services.AddServiceDiscovery(o => o.UseConsul());
+    
+    if (!builder.Environment.IsDevelopment())
+    {
+        builder.Services.AddHttpsRedirection(options =>
+        {
+            options.RedirectStatusCode = StatusCodes.Status308PermanentRedirect;
+            //options.HttpsPort = 443;
+            options.HttpsPort = 7111;
+        });
+    }
 
     var app = builder.Build();
     
@@ -194,14 +234,10 @@ try
     //app.UseSecurityHeaders();
 
     //app.UseErrorHandler(); // add here right after you create app
-
-    if (!builder.Environment.IsDevelopment())
+    if (!app.Environment.IsDevelopment())
     {
-        builder.Services.AddHttpsRedirection(options =>
-        {
-            options.RedirectStatusCode = StatusCodes.Status308PermanentRedirect;
-            options.HttpsPort = 443;
-        });
+        app.UseExceptionHandler("/Error");
+        app.UseHsts();
     }
     
     app.UseHttpsRedirection();
@@ -264,8 +300,10 @@ try
     });
 
     app.UseSerilogRequestLogging();
+    
+    app.Urls.Add("https://localhost:7111"); // 👈 Add the URL
 
-    app.Run();
+    app.Run(); // "https://localhost:7111"
 }
 catch (Exception ex)
 {

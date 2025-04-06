@@ -8,6 +8,7 @@ using Jobs.Common.Contracts;
 using Jobs.Common.Extentions;
 using Jobs.Common.Helpers;
 using Jobs.Common.Options;
+using Jobs.Common.Settings;
 using Jobs.Core.Contracts;
 using Jobs.Core.Contracts.Providers;
 using Jobs.Core.Extentions;
@@ -155,10 +156,16 @@ try
                 .AllowAnyHeader());
     });*/
     
+    CorsSettings corsSettings = new();
+
+    builder.Configuration
+        .GetRequiredSection(nameof(CorsSettings))
+        .Bind(corsSettings);
+    
     builder.Services.AddCors(options =>
     {
         options.AddDefaultPolicy(build => {
-            build.WithOrigins("https://localhost:7006");
+            build.WithOrigins(corsSettings.CorsAllowedOrigins);
             build.AllowAnyMethod();
             build.AllowAnyHeader();
         });
@@ -290,10 +297,6 @@ try
         await next.Invoke();
     });
 
-
-//api/v{version:apiVersion}
-    
-    
     app.UseSerilogRequestLogging();
 
     app.Run();

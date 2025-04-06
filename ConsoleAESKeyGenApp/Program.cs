@@ -5,6 +5,7 @@ using FS.Keycloak.RestApiClient.Api;
 using FS.Keycloak.RestApiClient.Authentication.ClientFactory;
 using FS.Keycloak.RestApiClient.Authentication.Flow;
 using FS.Keycloak.RestApiClient.ClientFactory;
+using Jobs.Common.Helpers;
 using Jobs.Core.Services;
 
 Console.WriteLine("Creating Aes Encryption 256 bit key");
@@ -19,20 +20,37 @@ using (Aes aesAlgorithm = Aes.Create())
     string keyBase64 = Convert.ToBase64String(aesAlgorithm.Key);
     Console.WriteLine($"Aes Key Size : {aesAlgorithm.KeySize}");
     Console.WriteLine("Here is the Aes key in Base64:");
-    Console.WriteLine(keyBase64);
+    Console.WriteLine("Key - " + keyBase64);
     string ivBase64 = Convert.ToBase64String(aesAlgorithm.IV.ToArray());
-    Console.WriteLine(ivBase64);
+    Console.WriteLine("IV - " + ivBase64);
 
     var testKey = "123456789123456789123";
+    var guid = Guid.NewGuid();
+
+    Console.WriteLine("TestKey: " + guid);
+// ee9d5db0-33cb-4408-ba9c-71289a823ba5
     var key = Convert.FromBase64String("QsDJ84U8bbsrtekK8GvGUqo1Burnfy4qe2BU9OtLtJk=");
     var iv = Convert.FromBase64String("ELoct42LnTjZpfft5Y9TAw==");
     var cryptoProvider = new NaiveEncryptionService(key, iv);
     var result = cryptoProvider.Encrypt(testKey);
     Console.WriteLine(result);
     
-    var AccountApiSecretKey = "zc32423gfdgbvcxb34wrhyh254t63avdfvfdve2534zxxvasd";
-    var accountSecretKeyResult = cryptoProvider.Encrypt(AccountApiSecretKey);
+    var accountApiSecretKey = "zc32423gfdgbvcxb34wrhyh254t63avdfvfdve2534zxxvasd";
+    Console.WriteLine("AccountApiSecretKey.Length - " + accountApiSecretKey.Length);
+    var accountSecretKeyResult = cryptoProvider.Encrypt(accountApiSecretKey);
     Console.WriteLine(accountSecretKeyResult);
+    
+    var defaultApiKey = "e37219fe-5f5e-4c11-9b84-d873d3e58eb1";
+    var cryptoProvider1 = new NaiveEncryptionService(key, iv);
+    var result1 = cryptoProvider1.Encrypt(defaultApiKey);
+    Console.WriteLine("DefaultApiKey : " + result1);
+    
+    var newAccountApiSecretKey = "gNU7q%!!#BslCtK044m1XV95pFUCAm5JozthqJ+K1aRRN9A3n";
+    var newAccountSecretKeyResult = cryptoProvider.Encrypt(newAccountApiSecretKey);
+    Console.WriteLine("newAccountSecretKeyResult : " + newAccountSecretKeyResult);
+
+    var accountApiSecretKeyRandom = RandomStringGeneratorHelper.GenRandomString(49);
+    Console.WriteLine("accountApiSecretKeyRandom - " + accountApiSecretKeyRandom);
    
 
     var credentials = new PasswordGrantFlow

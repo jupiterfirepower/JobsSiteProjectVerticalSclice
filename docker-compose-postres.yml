@@ -11,6 +11,29 @@ services:
     ports:
       - 8500:8500
 
+  vault:
+    image: hashicorp/vault:latest
+    container_name: vault
+    restart: unless-stopped
+    ports:
+      - 8200:8200
+      - 8201:8201
+    cap_add:
+      - IPC_LOCK
+    environment:
+      - VAULT_ADDR=http://127.0.0.1:8200
+      - VAULT_API_ADDR=http://127.0.0.1:8200
+    volumes:
+      - /home/jupiter/vault/logs:/vault/logs/:rw
+      - /home/jupiter/vault/data:/vault/data/:rw
+      - /home/jupiter/vault/config:/vault/config/:rw
+      - /home/jupiter/vault/certs:/vault/certs/:rw
+      - /home/jupiter/vault/file:/vault/file/:rw
+      #- /home/jupiter/volumes/vault/:/vault/:rw
+    healthcheck:
+      retries: 5
+    command: vault server -config=/vault/config/config.hcl
+
   postgres:
     container_name: postgres-db
     image: postgres:16-alpine

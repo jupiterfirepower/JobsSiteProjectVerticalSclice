@@ -30,12 +30,12 @@ public static class GetApiKeyToken
             {
                 GuardsHelper.Guards(mediatr, service, cryptService, signedNonceService, httpContextAccessor);
                 
-                if (ApiSecurityHelper.IsTrustBadRequest(httpContextAccessor, 
+                /*if (ApiSecurityHelper.IsTrustBadRequest(httpContextAccessor, 
                         cryptService, signedNonceService, service, 
                         apiKey, signedNonce, apiSecret))
                 {
                     return TypedResults.BadRequest();
-                }
+                }*/
 
                 var result = await Task.FromResult(true);
                 return TypedResults.Ok(result);
