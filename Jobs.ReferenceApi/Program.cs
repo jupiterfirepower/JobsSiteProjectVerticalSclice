@@ -11,6 +11,7 @@ using Jobs.Common.Options;
 using Jobs.Common.Settings;
 using Jobs.Core.Contracts;
 using Jobs.Core.Contracts.Providers;
+using Jobs.Core.DataModel;
 using Jobs.Core.Extentions;
 using Jobs.Core.Filters;
 using Jobs.Core.Handlers;
@@ -64,8 +65,14 @@ try
     builder.Services.AddDbContext<JobsDbContext>(options =>
         options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
     
+    // user-secrets
+    var referenceSecretKey = builder.Configuration["ReferenceApiService:SecretKey"];
+    Console.WriteLine($"referenceSecretKey: {referenceSecretKey}");
+    var referenceServiceDefApiKey = builder.Configuration["ReferenceApiService:DefaultApiKey"];
+    Console.WriteLine($"referenceServiceDefApiKey: {referenceServiceDefApiKey}");
+    
     //var vacancySecretKey = builder.Configuration["VacancyApiService:SecretKey"];
-    var referenceSecretKey = "12345678910111213141151617";
+    //var referenceSecretKey = "12345678910111213141151617";
     
     CryptOptions cryptOptions = new();
 
@@ -80,7 +87,13 @@ try
     builder.Services.AddScoped<IGenericRepository<EmploymentType>, EmploymentTypeRepository>();
     builder.Services.AddScoped<IGenericRepository<Category>, CategoryRepository>();
     builder.Services.AddScoped<IApiKeyStorageServiceProvider, MemoryApiKeyStorageServiceProvider>();
-    builder.Services.AddScoped<IApiKeyManagerServiceProvider, ApiKeyManagerServiceProvider>();
+    //builder.Services.AddScoped<IApiKeyManagerServiceProvider, ApiKeyManagerServiceProvider>();
+    builder.Services.AddScoped<IApiKeyManagerServiceProvider, ApiKeyManagerServiceProvider>(p =>
+    {
+        var currentService = p.ResolveWith<ApiKeyManagerServiceProvider>();
+        currentService.AddApiKey(new ApiKey { Key = referenceServiceDefApiKey, Expiration = null });
+        return currentService;
+    });
     builder.Services.AddScoped<ISecretApiKeyRepository, SecretApiKeyRepository>();
     
     builder.Services.AddScoped<Categories.ICategoryService, Categories.CategoryService>();

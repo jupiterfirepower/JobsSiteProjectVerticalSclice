@@ -99,12 +99,11 @@ builder.Configuration
     .GetRequiredSection(nameof(CryptOptions))
     .Bind(cryptOptions);
 
-var accountSecretKey = builder.Configuration["AccountApiService:SecretKey"];
-var accountApiKey = builder.Configuration["AccountApiService:ApiKey"];
-
-Console.WriteLine($"Guid - {Guid.NewGuid()}");
-Console.WriteLine($"AccountSecretKey - {accountSecretKey}");
-Console.WriteLine($"AccountApiKey - {accountApiKey}");
+// user-secrets
+var accountServiceSecretKey = builder.Configuration["AccountApiService:SecretKey"];
+Console.WriteLine($"accountServiceSecretKey: {accountServiceSecretKey}");
+var accountServiceDefApiKey = builder.Configuration["AccountApiService:DefaultApiKey"];
+Console.WriteLine($"accountServiceDefApiKey: {accountServiceDefApiKey}");
 
 // Add Redis configuration
 /*
@@ -133,11 +132,17 @@ builder.Services.AddStackExchangeRedisCache(options =>
     };
 });
 
-var storage = new MemoryApiKeyStorageServiceProvider();
-storage.AddApiKey(new ApiKey{ Key = accountApiKey, Expiration = null });
+//var storage = new MemoryApiKeyStorageServiceProvider();
+//storage.AddApiKey(new ApiKey{ Key = accountApiKey, Expiration = null });
 
 builder.Services.AddScoped<IApiKeyStorageServiceProvider, MemoryApiKeyStorageServiceProvider>();
-builder.Services.AddScoped<IApiKeyManagerServiceProvider, ApiKeyManagerServiceProvider>();
+//builder.Services.AddScoped<IApiKeyManagerServiceProvider, ApiKeyManagerServiceProvider>();
+builder.Services.AddScoped<IApiKeyManagerServiceProvider, ApiKeyManagerServiceProvider>(p =>
+{
+    var currentService = p.ResolveWith<ApiKeyManagerServiceProvider>();
+    currentService.AddApiKey(new ApiKey { Key = accountServiceDefApiKey, Expiration = null });
+    return currentService;
+});
 
 //builder.Services.AddScoped<IKeycloakAccountService, KeycloakAccountService>();
 builder.Services.AddScoped<Login.IKeycloakLoginService, Login.KeycloakLoginService>();
@@ -150,7 +155,7 @@ builder.Services.AddScoped<IEncryptionService, NaiveEncryptionService>(p =>
     p.ResolveWith<NaiveEncryptionService>(Convert.FromBase64String(cryptOptions.PKey), Convert.FromBase64String(cryptOptions.IV)));
 builder.Services.AddScoped<ISignedNonceService, SignedNonceService>();
 builder.Services.AddScoped<ISecretApiService, SecretApiService>(p => 
-    p.ResolveWith<SecretApiService>(accountSecretKey));
+    p.ResolveWith<SecretApiService>(accountServiceSecretKey));
 
 builder.Services.AddSingleton<PeriodicHostedService>();
 builder.Services.AddHostedService(provider => provider.GetRequiredService<PeriodicHostedService>());

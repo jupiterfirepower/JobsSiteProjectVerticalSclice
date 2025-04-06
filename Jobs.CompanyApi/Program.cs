@@ -15,6 +15,7 @@ using Jobs.CompanyApi.Helpers;
 using Jobs.CompanyApi.Repositories;
 using Jobs.Core.Contracts;
 using Jobs.Core.Contracts.Providers;
+using Jobs.Core.DataModel;
 using Jobs.Core.Extentions;
 using Jobs.Core.Filters;
 using Jobs.Core.Handlers;
@@ -53,8 +54,8 @@ try
 
     Log.Information("Starting WebApi Company Service.");
 
-    var companySecretKey = builder.Configuration["JobsCompanyApi:SecretKey"];
-    Console.WriteLine($"CompanySecretKey - {companySecretKey}");
+    //var companySecretKey = builder.Configuration["JobsCompanyApi:SecretKey"];
+    //Console.WriteLine($"CompanySecretKey - {companySecretKey}");
 
 // Add services to the container.
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
@@ -109,7 +110,13 @@ try
 
     builder.Services.AddDbContext<CompanyDbContext>(options =>
         options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
-
+    
+    // user-secrets
+    var companySecretKey = builder.Configuration["CompanyApiService:SecretKey"];
+    Console.WriteLine($"companySecretKey: {companySecretKey}");
+    var companyServiceDefApiKey = builder.Configuration["CompanyApiService:DefaultApiKey"];
+    Console.WriteLine($"companyServiceDefApiKey: {companyServiceDefApiKey}");
+    
     CryptOptions cryptOptions = new();
 
     builder.Configuration
@@ -118,7 +125,13 @@ try
 
     builder.Services.AddScoped<IGenericRepository<Company>, CompanyRepository>();
     builder.Services.AddScoped<IApiKeyStorageServiceProvider, MemoryApiKeyStorageServiceProvider>();
-    builder.Services.AddScoped<IApiKeyManagerServiceProvider, ApiKeyManagerServiceProvider>();
+    //builder.Services.AddScoped<IApiKeyManagerServiceProvider, ApiKeyManagerServiceProvider>();
+    builder.Services.AddScoped<IApiKeyManagerServiceProvider, ApiKeyManagerServiceProvider>(p =>
+    {
+        var currentService = p.ResolveWith<ApiKeyManagerServiceProvider>();
+        currentService.AddApiKey(new ApiKey { Key = companyServiceDefApiKey, Expiration = null });
+        return currentService;
+    });
     builder.Services.AddScoped<ISecretApiKeyRepository, SecretApiKeyRepository>();
 
     builder.Services.AddScoped<GetCompanies.ICompaniesService, GetCompanies.CompaniesService>();

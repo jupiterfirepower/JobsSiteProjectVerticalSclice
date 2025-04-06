@@ -62,7 +62,7 @@ try
     builder.Services.AddDbContext<JobsDbContext>(options =>
         options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
     
-    // user-secret
+    // user-secrets
     var vacancySecretKey = builder.Configuration["VacancyApiService:SecretKey"];
     Console.WriteLine($"vacancySecretKey: {vacancySecretKey}");
     var vacancyServiceDefApiKey = builder.Configuration["VacancyApiService:DefaultApiKey"];

@@ -1,6 +1,7 @@
 ﻿// See https://aka.ms/new-console-template for more information
 
 using System.Security.Cryptography;
+using ConsoleAESKeyGenApp;
 using FS.Keycloak.RestApiClient.Api;
 using FS.Keycloak.RestApiClient.Authentication.ClientFactory;
 using FS.Keycloak.RestApiClient.Authentication.Flow;
@@ -51,6 +52,9 @@ using (Aes aesAlgorithm = Aes.Create())
 
     var accountApiSecretKeyRandom = RandomStringGeneratorHelper.GenRandomString(49);
     Console.WriteLine("accountApiSecretKeyRandom - " + accountApiSecretKeyRandom);
+
+    var v7 = GuidV7.NewGuid();
+    Console.WriteLine("GuidV7 - " + v7);
     
     var ticks = DateTime.UtcNow.Ticks;
     var sign = ticks * Math.PI * Math.E;
