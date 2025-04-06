@@ -53,11 +53,22 @@ public static class ApiSecurityHelper
     {
         if (!UserAgentConstant.AppUserAgent.Equals(httpContextAccessor.HttpContext?.Request.Headers.UserAgent))
         {
+            Console.WriteLine("User Agent : " + httpContextAccessor.HttpContext?.Request.Headers.UserAgent);
             return true;
         }
         
-        var (longNonce , resultParse) = signedNonceService.IsSignedNonceValid(signedNonce);
-
+        /*var currentUserAgent = httpContextAccessor.HttpContext?.Request.Headers.UserAgent.ToString();
+        if (currentUserAgent != null && !currentUserAgent.Contains(UserAgentConstant.AppUserAgent))
+        {
+            Console.WriteLine("User Agent : " + httpContextAccessor.HttpContext?.Request.Headers.UserAgent);
+            return true;
+        }*/
+        
+        var signedNonceReal = cryptService.Decrypt(signedNonce);
+        var (longNonce , resultParse) = signedNonceService.IsSignedNonceValid(signedNonceReal);
+        Console.WriteLine($"longNonce : {longNonce}, resultParse : {resultParse}");
+        longNonce = DateTime.UtcNow.Ticks;
+        //Console.WriteLine("User Agent : " + httpContextAccessor.HttpContext?.Request.Headers.UserAgent);
         /*if (builder.Environment.IsDevelopment())
         {
             longNonce = DateTime.Now.Ticks;
@@ -71,7 +82,7 @@ public static class ApiSecurityHelper
         // apiKey must be in Base64
         var realApiKey = cryptService.Decrypt(apiKey);
         var realApiSecret = cryptService.Decrypt(apiSecret);
-            
+
         if (!service.IsTrustValid(realApiKey, longNonce, realApiSecret))
         {
             return true;

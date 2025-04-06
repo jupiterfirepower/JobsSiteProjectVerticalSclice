@@ -29,13 +29,13 @@ public static class GetApiKeyToken
              StringLength(HttpHeaderKeys.XApiSecretHeaderKeyMaxLength, MinimumLength = HttpHeaderKeys.XApiSecretHeaderKeyMinLength)] string apiSecret) =>
             {
                 GuardsHelper.Guards(mediatr, service, cryptService, signedNonceService, httpContextAccessor);
-                
-                /*if (ApiSecurityHelper.IsTrustBadRequest(httpContextAccessor, 
+                Console.WriteLine($"Pass GuardsHelper.Guards");
+                if (ApiSecurityHelper.IsTrustBadRequest(httpContextAccessor, 
                         cryptService, signedNonceService, service, 
                         apiKey, signedNonce, apiSecret))
                 {
                     return TypedResults.BadRequest();
-                }*/
+                }
 
                 var result = await Task.FromResult(true);
                 return TypedResults.Ok(result);

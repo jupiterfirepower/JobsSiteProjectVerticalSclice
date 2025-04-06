@@ -20,10 +20,10 @@ builder.Services.AddReverseProxy()
         transforms.AddRequestTransform(async context =>
         {
             // Copying the headers from the incoming request to the target request
-            foreach (var header in context.HttpContext.Request.Headers)
+            /*foreach (var header in context.HttpContext.Request.Headers)
             {
                 context.ProxyRequest.Headers.TryAddWithoutValidation(header.Key, header.Value.ToArray());
-            }
+            }*/
 
             await Task.CompletedTask;
         });

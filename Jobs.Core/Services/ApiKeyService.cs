@@ -71,4 +71,16 @@ public class ApiKeyService(IApiKeyManagerServiceProvider managerServiceProvider,
     return t && t1 && t2;
 }*/
 
+   /* public bool IsTrustValid(string apiKey, long nonce, string realSecretApiKey)
+    {
+        Console.WriteLine($"ApiKey  - {apiKey}");
+        var t1 = IsValidTrustApiKey(apiKey);
+        Console.WriteLine($"ApiKey Valid - {t1}");
+            //&& IsNonceValid(nonce) 
+        Console.WriteLine($"RealSecretApiKey  - {realSecretApiKey}");
+        var t2 = IsSecretApiKeyValid(realSecretApiKey);
+        Console.WriteLine($"IsSecretApiKeyValid  - {t2}");
+        return t1 && t2;
+    } */
+
 }
