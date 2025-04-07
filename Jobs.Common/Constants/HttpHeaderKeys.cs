@@ -6,6 +6,8 @@ public static class HttpHeaderKeys
     public const string SNonceHeaderKey = "s-nonce";
     public const string XApiSecretHeaderKey = "x-api-secret";
     public const string AppJsonMediaTypeValue = "application/json";
+    public const string XCorrelationIdHeaderKey = "x-correlation-id";
+    public const string SerilogCorrelationIdProperty = "CorrelationId";
     public const int XApiHeaderKeyMaxLength = 100;
     public const int XApiHeaderKeyMinLength = 15;
     public const int SNonceHeaderKeyMaxLength = 64;

@@ -36,6 +36,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using OpenTelemetry.Resources;
 using Serilog;
+using Serilog.Context;
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
@@ -273,6 +274,18 @@ try
             options.HttpsPort = 443;
         });
     }
+    
+    // CorrelationId Middleware
+    app.Use(async (context, next) =>
+    {
+        var correlationId = context.Request.Headers[HttpHeaderKeys.XCorrelationIdHeaderKey].FirstOrDefault() ?? Guid.NewGuid().ToString();
+        context.Response.Headers[HttpHeaderKeys.XCorrelationIdHeaderKey] = correlationId;
+
+        using (LogContext.PushProperty(HttpHeaderKeys.SerilogCorrelationIdProperty, correlationId))
+        {
+            await next();
+        }
+    }); 
 
     app.Use(async (context, next) =>
     {

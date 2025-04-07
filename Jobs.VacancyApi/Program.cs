@@ -33,6 +33,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using OpenTelemetry.Resources;
 using Serilog;
+using Serilog.Context;
 using Steeltoe.Discovery.Client;
 using Steeltoe.Discovery.Consul;
 
@@ -251,6 +252,18 @@ try
     
     // HealthCheck Middleware
     app.AddHealthChecks();
+    
+    // CorrelationId Middleware
+    app.Use(async (context, next) =>
+    {
+        var correlationId = context.Request.Headers[HttpHeaderKeys.XCorrelationIdHeaderKey].FirstOrDefault() ?? Guid.NewGuid().ToString();
+        context.Response.Headers[HttpHeaderKeys.XCorrelationIdHeaderKey] = correlationId;
+
+        using (LogContext.PushProperty(HttpHeaderKeys.SerilogCorrelationIdProperty, correlationId))
+        {
+            await next();
+        }
+    });   
 
     // Ensure database is created during application startup
     using (var scope = app.Services.CreateScope())

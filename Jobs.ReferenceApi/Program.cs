@@ -38,6 +38,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using OpenTelemetry.Resources;
 using Serilog;
+using Serilog.Context;
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
@@ -257,13 +258,25 @@ try
             .AllowAnyMethod()
             .AllowAnyHeader());*/
     
-//app.UseMiddleware<ErrorHandlerMiddleware>(); 
+    //app.UseMiddleware<ErrorHandlerMiddleware>(); 
     // Enable compression
     
 
     app.UseRateLimiter();
+    
+    // CorrelationId Middleware
+    app.Use(async (context, next) =>
+    {
+        var correlationId = context.Request.Headers[HttpHeaderKeys.XCorrelationIdHeaderKey].FirstOrDefault() ?? Guid.NewGuid().ToString();
+        context.Response.Headers[HttpHeaderKeys.XCorrelationIdHeaderKey] = correlationId;
 
-// Ensure database is created during application startup
+        using (LogContext.PushProperty(HttpHeaderKeys.SerilogCorrelationIdProperty, correlationId))
+        {
+            await next();
+        }
+    }); 
+
+    // Ensure database is created during application startup
     using (var scope = app.Services.CreateScope())
     {
         var dbContext = scope.ServiceProvider.GetRequiredService<JobsDbContext>();

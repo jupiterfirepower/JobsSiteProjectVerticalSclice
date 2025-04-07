@@ -31,6 +31,7 @@ using MediatR;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Serilog.Context;
 using StackExchange.Redis;
 using SecretApiService = Jobs.Core.Services.SecretApiService;
 using IApiKeyService = Jobs.Core.Contracts.IApiKeyService;
@@ -257,6 +258,18 @@ if (mapper == null)
     throw new InvalidOperationException("Mapper not found");
 }
 
+// CorrelationId Middleware
+app.Use(async (context, next) =>
+{
+    var correlationId = context.Request.Headers[HttpHeaderKeys.XCorrelationIdHeaderKey].FirstOrDefault() ?? Guid.NewGuid().ToString();
+    context.Response.Headers[HttpHeaderKeys.XCorrelationIdHeaderKey] = correlationId;
+
+    using (LogContext.PushProperty(HttpHeaderKeys.SerilogCorrelationIdProperty, correlationId))
+    {
+        await next();
+    }
+});
+
 app.Use(async (context, next) =>
 {
     try
@@ -298,9 +311,7 @@ app.Use(async (context, next) =>
     await next.Invoke();
 });
 
+app.UseSerilogRequestLogging();
 
-
-    app.UseSerilogRequestLogging();
-
-    app.Run();
+app.Run();
 
