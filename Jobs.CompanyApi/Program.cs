@@ -9,6 +9,7 @@ using Jobs.Common.Extentions;
 using Jobs.Common.Options;
 using Jobs.Common.Settings;
 using Jobs.CompanyApi.DbContext;
+using Jobs.CompanyApi.Extentions;
 using Jobs.CompanyApi.Features.Companies;
 using Jobs.CompanyApi.Features.Notifications;
 using Jobs.CompanyApi.Helpers;
@@ -37,6 +38,8 @@ using Microsoft.OpenApi.Models;
 using OpenTelemetry.Resources;
 using Serilog;
 using Serilog.Context;
+using Steeltoe.Discovery.Client;
+using Steeltoe.Discovery.Consul;
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
@@ -211,6 +214,12 @@ try
     });
 
     builder.Services.AddEndpoints(typeof(Program).Assembly);
+    
+    // Configuring Health Check
+    builder.Services.ConfigureHealthChecks(builder.Configuration);
+    
+    // Service Discovery Consul
+    builder.Services.AddServiceDiscovery(o => o.UseConsul());
 
     var app = builder.Build();
 
@@ -274,6 +283,9 @@ try
             options.HttpsPort = 443;
         });
     }
+    
+    // HealthCheck Middleware
+    app.AddHealthChecks();
     
     // CorrelationId Middleware
     app.Use(async (context, next) =>

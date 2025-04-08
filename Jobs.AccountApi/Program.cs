@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 using OpenTelemetry.Resources;
 using Serilog;
 using AutoMapper;
+using Jobs.AccountApi.Extentions;
 using Jobs.AccountApi.Features.Keycloak;
 using Jobs.Common.Constants;
 using Jobs.Common.Extentions;
@@ -33,6 +34,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Serilog.Context;
 using StackExchange.Redis;
+using Steeltoe.Discovery.Client;
+using Steeltoe.Discovery.Consul;
 using SecretApiService = Jobs.Core.Services.SecretApiService;
 using IApiKeyService = Jobs.Core.Contracts.IApiKeyService;
 
@@ -220,6 +223,12 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddEndpoints(typeof(Program).Assembly);
 
+// Configuring Health Check
+builder.Services.ConfigureHealthChecks(builder.Configuration);
+
+// Service Discovery Consul
+builder.Services.AddServiceDiscovery(o => o.UseConsul());
+
 var app = builder.Build();
 
 var version1 = new ApiVersion(1);
@@ -257,6 +266,9 @@ if (mapper == null)
 {
     throw new InvalidOperationException("Mapper not found");
 }
+
+// HealthCheck Middleware
+app.AddHealthChecks();
 
 // CorrelationId Middleware
 app.Use(async (context, next) =>

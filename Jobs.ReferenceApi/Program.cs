@@ -25,6 +25,7 @@ using Jobs.DTO.In;
 using Jobs.Entities.Models;
 using Jobs.ReferenceApi.Contracts;
 using Jobs.ReferenceApi.Data;
+using Jobs.ReferenceApi.Extentions;
 using Jobs.ReferenceApi.Features.Categories;
 using Jobs.ReferenceApi.Features.EmploymentTypes;
 //using Jobs.ReferenceApi.Features.Queries;
@@ -39,6 +40,8 @@ using Microsoft.EntityFrameworkCore;
 using OpenTelemetry.Resources;
 using Serilog;
 using Serilog.Context;
+using Steeltoe.Discovery.Client;
+using Steeltoe.Discovery.Consul;
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
@@ -186,6 +189,12 @@ try
     });
     
     builder.Services.AddEndpoints(typeof(Program).Assembly);
+    
+    // Configuring Health Check
+    builder.Services.ConfigureHealthChecks(builder.Configuration);
+    
+    // Service Discovery Consul
+    builder.Services.AddServiceDiscovery(o => o.UseConsul());
 
     var app = builder.Build();
     
@@ -263,6 +272,9 @@ try
     
 
     app.UseRateLimiter();
+    
+    // HealthCheck Middleware
+    app.AddHealthChecks();
     
     // CorrelationId Middleware
     app.Use(async (context, next) =>

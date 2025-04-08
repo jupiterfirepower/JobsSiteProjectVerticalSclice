@@ -1,9 +1,7 @@
 using Jobs.Core.CustomHealthChecks;
-using Jobs.VacancyApi.Data;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 
-namespace Jobs.VacancyApi.Extentions;
+namespace Jobs.AccountApi.Extentions;
 
 public static class ConfigureHealthChecksExtension
 {
@@ -11,16 +9,8 @@ public static class ConfigureHealthChecksExtension
     {
         var connectionString = configuration.GetConnectionString("DefaultConnection");
         Console.WriteLine($"Connection string: {connectionString}");
-        //configuration.GetConnectionString("ConnectionStrings:NpgConnection")!
         // Add HealthChecks
-        //services.AddHealthChecks();
         services.AddHealthChecks()
-            .AddNpgSql(connectionString!,
-                name: "Postgres", failureStatus: HealthStatus.Unhealthy, tags: ["Vacancy", "Database"])
-            .AddDbContextCheck<JobsDbContext>(
-                "Categories check",
-                customTestQuery: (db, token) => db.Categories.AnyAsync(token),
-                tags: ["ef-db"])
             .AddCheck<MemoryHealthCheck>($"Vacancy Service Memory Check", failureStatus: HealthStatus.Unhealthy, tags:
                 ["Vacancy Service"])
             .AddCheck<VaultHealthCheck>("Vault Check", failureStatus: HealthStatus.Unhealthy, tags:
@@ -31,7 +21,7 @@ public static class ConfigureHealthChecksExtension
                 option.Port = 8500;
                 option.RequireHttps = false;
             }, tags: ["Consul"]);
-            //.AddUrlGroup(new Uri("https://localhost:7111/api/v1/heartbeats/ping"), name: "base URL", failureStatus: HealthStatus.Unhealthy);
+        //.AddUrlGroup(new Uri("https://localhost:7111/api/v1/heartbeats/ping"), name: "base URL", failureStatus: HealthStatus.Unhealthy);
     
         services.AddHealthChecksUI(opt => {
                 opt.SetEvaluationTimeInSeconds(60); //time in seconds between check    

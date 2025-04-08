@@ -187,8 +187,8 @@ try
         builder.Services.AddHttpsRedirection(options =>
         {
             options.RedirectStatusCode = StatusCodes.Status308PermanentRedirect;
-            //options.HttpsPort = 443;
-            options.HttpsPort = 7111;
+            options.HttpsPort = 443;
+            //options.HttpsPort = 7111;
         });
     }
 

@@ -84,16 +84,24 @@ app.UseRateLimiter();*/
 
 app.Use(async (context, next) =>
 {
-    var correlationId = context.Request.Headers[HttpHeaderKeys.XCorrelationIdHeaderKey].FirstOrDefault() ?? Guid.NewGuid().ToString();
-    context.Response.Headers[HttpHeaderKeys.XCorrelationIdHeaderKey] = correlationId;
+    var corId = context.Request.Headers[HttpHeaderKeys.XCorrelationIdHeaderKey].FirstOrDefault();
+    var correlationId = corId ?? Guid.NewGuid().ToString();
+    
+    if (string.IsNullOrWhiteSpace(corId))
+    {
+        context.Request.Headers[HttpHeaderKeys.XCorrelationIdHeaderKey] = correlationId;
+    }
+    //context.Response.Headers[HttpHeaderKeys.XCorrelationIdHeaderKey] = correlationId;
+    //
+    Console.WriteLine($"Correlation Id: {correlationId}");
 
     //using (LogContext.PushProperty(HttpHeaderKeys.SerilogCorrelationIdProperty, correlationId))
-    {
+    //{
         await next();
-    }
+    //}
 });   
 
-// Map the reverse proxy routes
+// Map the reverse proxy routes  Register YARP middleware
 app.MapReverseProxy(proxyPipeline =>
 {
     proxyPipeline.Use(async (context, next) =>
