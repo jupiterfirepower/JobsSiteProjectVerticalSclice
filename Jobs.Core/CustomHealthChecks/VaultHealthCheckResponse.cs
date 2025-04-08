@@ -11,7 +11,7 @@ public record VaultHealthCheckResponse(
     bool Standby,
     [property: JsonPropertyName("performance_standby")]
     bool PerformanceStandby,
-    [property: JsonPropertyName("performance_standby")]
+    [property: JsonPropertyName("replication_performance_mode")]
     string ReplicationPerformanceMode,
     [property: JsonPropertyName("replication_dr_mode")]
     string ReplicationDrMode,
@@ -25,7 +25,7 @@ public record VaultHealthCheckResponse(
     string ClusterName,
     [property: JsonPropertyName("cluster_id")]
     string ClusterId,
-    [property: JsonPropertyName("cluster_id")]
+    [property: JsonPropertyName("echo_duration_ms")]
     int EchoDurationMs,
     [property: JsonPropertyName("clock_skew_ms")]
     int ClockSkewMs,

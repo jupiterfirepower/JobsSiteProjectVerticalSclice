@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text;
 using Jobs.Common.Constants;
 using Microsoft.AspNetCore.HttpLogging;
@@ -17,6 +18,8 @@ builder.Services.AddReverseProxy()
     .ConfigureHttpClient((_, handler) =>
     {
         handler.AllowAutoRedirect = true;
+        handler.MaxConnectionsPerServer = 100;
+        handler.EnableMultipleHttp2Connections = true;
     })
     .AddTransforms(transforms =>
     {
@@ -30,12 +33,34 @@ builder.Services.AddReverseProxy()
 
             await Task.CompletedTask;
         });
+    }).AddTransforms(builderContext =>  //Monitor YARP’s performance:
+    {
+        builderContext.AddRequestTransform(async transformContext =>
+        {
+            var activity = new Activity("ProxyRequest");
+            activity.SetTag("Destination", transformContext.DestinationPrefix);
+            activity.Start();
+            
+            transformContext.HttpContext.Items["ProxyActivity"] = activity;
+            await Task.CompletedTask;
+        });
+        
+        builderContext.AddResponseTransform(async transformContext =>
+        {
+            if (transformContext.HttpContext.Items["ProxyActivity"] is Activity activity)
+            {
+                activity.SetTag("StatusCode", transformContext.ProxyResponse?.StatusCode);
+                activity.Stop();
+            }
+            await Task.CompletedTask;
+        });
     });;
 
 // Optional: Add logging for diagnostics (if needed)
 builder.Services.AddLogging(logging =>
 {
     logging.AddConsole();
+    logging.AddFilter("Yarp", LogLevel.Debug);
 });
 
 builder.Services.AddHttpLogging(logging =>
@@ -44,7 +69,6 @@ builder.Services.AddHttpLogging(logging =>
     logging.LoggingFields = HttpLoggingFields.All;
     //logging.RequestHeaders.Add("sec-ch-ua");
     //logging.ResponseHeaders.Add("my-response-header");
-    //logging.MediaTypeOptions.AddText("application/javascript");
     logging.RequestBodyLogLimit = 4096;
     logging.ResponseBodyLogLimit = 4096;
 });
@@ -54,16 +78,16 @@ builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("authenticated", policy =>
         policy.RequireAuthenticatedUser());
-});
+});*/
 
 builder.Services.AddRateLimiter(rateLimiterOptions =>
 {
     rateLimiterOptions.AddFixedWindowLimiter("fixed", options =>
     {
-        options.Window = TimeSpan.FromSeconds(10);
-        options.PermitLimit = 5;
+        options.Window = TimeSpan.FromSeconds(60);
+        options.PermitLimit = 50;
     });
-});*/
+});
 
 var app = builder.Build();
 
@@ -79,8 +103,8 @@ app.UseHttpsRedirection();
 
 /*
 app.UseAuthentication();
-app.UseAuthorization();
-app.UseRateLimiter();*/
+app.UseAuthorization();*/
+app.UseRateLimiter();
 
 app.Use(async (context, next) =>
 {
@@ -91,8 +115,6 @@ app.Use(async (context, next) =>
     {
         context.Request.Headers[HttpHeaderKeys.XCorrelationIdHeaderKey] = correlationId;
     }
-    //context.Response.Headers[HttpHeaderKeys.XCorrelationIdHeaderKey] = correlationId;
-    //
     Console.WriteLine($"Correlation Id: {correlationId}");
 
     //using (LogContext.PushProperty(HttpHeaderKeys.SerilogCorrelationIdProperty, correlationId))
