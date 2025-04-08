@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 using OpenTelemetry.Resources;
 using Serilog;
 using AutoMapper;
+using DotNetEnv;
 using Jobs.AccountApi.Extentions;
 using Jobs.AccountApi.Features.Keycloak;
 using Jobs.Common.Constants;
@@ -25,6 +26,7 @@ using Jobs.Core.Managers;
 using Jobs.Core.Middleware;
 using Jobs.Core.Observability.Options;
 using Jobs.Core.Providers;
+using Jobs.Core.Providers.Vault;
 using Jobs.Core.Services;
 using Jobs.Entities.DataModel;
 using Jobs.Entities.Responses;
@@ -97,17 +99,26 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddHttpClient();
 
-CryptOptions cryptOptions = new();
-
-builder.Configuration
-    .GetRequiredSection(nameof(CryptOptions))
-    .Bind(cryptOptions);
-
 // user-secrets
-var accountServiceSecretKey = builder.Configuration["AccountApiService:SecretKey"];
+/*var accountServiceSecretKey = builder.Configuration["AccountApiService:SecretKey"];
 Console.WriteLine($"accountServiceSecretKey: {accountServiceSecretKey}");
 var accountServiceDefApiKey = builder.Configuration["AccountApiService:DefaultApiKey"];
-Console.WriteLine($"accountServiceDefApiKey: {accountServiceDefApiKey}");
+Console.WriteLine($"accountServiceDefApiKey: {accountServiceDefApiKey}");*/
+
+Env.TraversePath().Load();
+    
+var vaultUri = Environment.GetEnvironmentVariable("VAULT_ADDR");
+var vaultToken = Environment.GetEnvironmentVariable("VAULT_TOKEN");
+    
+// Hashicorp Vault Secrets.
+var vaultSecretsProvider = new VaultSecretProvider(vaultUri, vaultToken);
+
+var vaultSecretKey = await vaultSecretsProvider.GetSecretValueAsync("secrets/services/account", "SecretKey", "secrets");
+Console.WriteLine($"vaultSecretKey: {vaultSecretKey}");
+var vaultDefaultApiKey = await vaultSecretsProvider.GetSecretValueAsync("secrets/services/account", "DefaultApiKey", "secrets");
+Console.WriteLine($"vaultDefaultApiKey: {vaultDefaultApiKey}");
+
+builder.Services.ConfigureDependencyInjection(builder.Configuration);
 
 // Add Redis configuration
 /*
@@ -136,8 +147,11 @@ builder.Services.AddStackExchangeRedisCache(options =>
     };
 });
 
-//var storage = new MemoryApiKeyStorageServiceProvider();
-//storage.AddApiKey(new ApiKey{ Key = accountApiKey, Expiration = null });
+/*CryptOptions cryptOptions = new();
+
+builder.Configuration
+    .GetRequiredSection(nameof(CryptOptions))
+    .Bind(cryptOptions);
 
 builder.Services.AddScoped<IApiKeyStorageServiceProvider, MemoryApiKeyStorageServiceProvider>();
 //builder.Services.AddScoped<IApiKeyManagerServiceProvider, ApiKeyManagerServiceProvider>();
@@ -165,7 +179,7 @@ builder.Services.AddSingleton<PeriodicHostedService>();
 builder.Services.AddHostedService(provider => provider.GetRequiredService<PeriodicHostedService>());
 
 builder.Services.AddAutoMapper(Assembly.GetExecutingAssembly()); // AutoMapper registration
-builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly()));
+builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly()));*/
 
 builder.Services.ConfigureHttpJsonOptions(options =>
 {

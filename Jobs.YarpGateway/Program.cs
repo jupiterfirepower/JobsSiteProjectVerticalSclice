@@ -3,6 +3,8 @@ using System.Text;
 using Jobs.Common.Constants;
 using Microsoft.AspNetCore.HttpLogging;
 using Microsoft.AspNetCore.RateLimiting;
+using Steeltoe.Discovery.Client;
+using Steeltoe.Discovery.Consul;
 using Yarp.ReverseProxy.Transforms;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -11,6 +13,9 @@ var builder = WebApplication.CreateBuilder(args);
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+// Service Discovery Consul
+builder.Services.AddServiceDiscovery(o => o.UseConsul());
 
 // Add YARP reverse proxy services and load configuration from appsettings.json
 builder.Services.AddReverseProxy()
@@ -33,7 +38,7 @@ builder.Services.AddReverseProxy()
 
             await Task.CompletedTask;
         });
-    }).AddTransforms(builderContext =>  //Monitor YARP’s performance:
+    }).AddTransforms(builderContext =>  // Monitor YARP’s performance:
     {
         builderContext.AddRequestTransform(async transformContext =>
         {

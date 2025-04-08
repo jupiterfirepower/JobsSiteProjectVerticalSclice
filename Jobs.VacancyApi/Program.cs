@@ -53,8 +53,8 @@ try
     
     Log.Information("Starting WebApi Vacancy Service.");
 
-// Add services to the container.
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+    // Add services to the container.
+    // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen();
     
@@ -64,25 +64,28 @@ try
         options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
     
     // user-secrets
-    var vacancySecretKey = builder.Configuration["VacancyApiService:SecretKey"];
-    Console.WriteLine($"vacancySecretKey: {vacancySecretKey}");
-    var vacancyServiceDefApiKey = builder.Configuration["VacancyApiService:DefaultApiKey"];
+    //var vacancySecretKey = builder.Configuration["VacancyApiService:SecretKey"];
+    //Console.WriteLine($"vacancySecretKey: {vacancySecretKey}");
+    //var vacancyServiceDefApiKey = builder.Configuration["VacancyApiService:DefaultApiKey"];
     
     // Load environment variables from the .env file
-    Env.Load();
+    //Env.Load();
     Env.TraversePath().Load();
     
     var vaultUri = Environment.GetEnvironmentVariable("VAULT_ADDR");
     var vaultToken = Environment.GetEnvironmentVariable("VAULT_TOKEN");
+    
+    // Hashicorp Vault Secrets.
+    var vaultSecretsProvider = new VaultSecretProvider(vaultUri, vaultToken);
 
-    var vaultSecretsProvider = new VaultSecretProvider(vaultUri, vaultToken );
-
-    /*var vaultSecretKey = await vaultSecretsProvider.GetSecretValueAsync("secrets/services/vacancy", "SecretKey", "secrets");
+    var vaultSecretKey = await vaultSecretsProvider.GetSecretValueAsync("secrets/services/vacancy", "SecretKey", "secrets");
     Console.WriteLine($"vaultSecretKey: {vaultSecretKey}");
     var vaultDefaultApiKey = await vaultSecretsProvider.GetSecretValueAsync("secrets/services/vacancy", "DefaultApiKey", "secrets");
-    Console.WriteLine($"vaultDefaultApiKey: {vaultDefaultApiKey}");*/
+    Console.WriteLine($"vaultDefaultApiKey: {vaultDefaultApiKey}");
+
+    builder.Services.ConfigureDependencyInjection(builder.Configuration);
     
-    CryptOptions cryptOptions = new();
+    /*CryptOptions cryptOptions = new();
 
     builder.Configuration
         .GetRequiredSection(nameof(CryptOptions))
@@ -112,7 +115,7 @@ try
         p.ResolveWith<SecretApiService>(vacancySecretKey));
     
     builder.Services.AddAutoMapper(Assembly.GetExecutingAssembly()); // AutoMapper registration
-    builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly()));
+    builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly()));*/
 
     builder.Services.ConfigureHttpJsonOptions(options =>
     {
@@ -164,17 +167,6 @@ try
     });
     
     builder.Services.AddEndpoints(typeof(Program).Assembly);
-    
-    // Add HealthChecks
-    /*builder.Services.AddHealthChecks();
-    builder.Services.AddHealthChecks().AddNpgSql(builder.Configuration.GetConnectionString("NpgConnection")!, 
-        name: "Postgres", failureStatus: HealthStatus.Unhealthy, tags: ["Vacancy", "Database"]);
-    
-    builder.Services.AddHealthChecks().AddDbContextCheck<JobsDbContext>(
-        "Categories check",
-        customTestQuery: (db, token) => db.Categories.AnyAsync(token),
-        tags: ["ef-db"]
-    );*/
     
     // Configuring Health Check
     builder.Services.ConfigureHealthChecks(builder.Configuration);

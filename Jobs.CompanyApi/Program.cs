@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Security.Claims;
 using Asp.Versioning;
 using AutoMapper;
+using DotNetEnv;
 using Jobs.Common.Constants;
 using Jobs.Common.Contracts;
 using Jobs.Common.Extentions;
@@ -24,6 +25,7 @@ using Jobs.Core.Managers;
 using Jobs.Core.Middleware;
 using Jobs.Core.Observability.Options;
 using Jobs.Core.Providers;
+using Jobs.Core.Providers.Vault;
 using Jobs.Core.Services;
 using Jobs.DTO;
 using Jobs.DTO.In;
@@ -58,13 +60,10 @@ try
 
     Log.Information("Starting WebApi Company Service.");
 
-    //var companySecretKey = builder.Configuration["JobsCompanyApi:SecretKey"];
-    //Console.WriteLine($"CompanySecretKey - {companySecretKey}");
-
-// Add services to the container.
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+    // Add services to the container.
+    // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
     builder.Services.AddEndpointsApiExplorer();
-//builder.Services.AddSwaggerGen();
+    //builder.Services.AddSwaggerGen();
 
     KeycloakSwaggerSettings swaggerSettings = new();
 
@@ -116,12 +115,27 @@ try
         options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
     
     // user-secrets
-    var companySecretKey = builder.Configuration["CompanyApiService:SecretKey"];
+    /*var companySecretKey = builder.Configuration["CompanyApiService:SecretKey"];
     Console.WriteLine($"companySecretKey: {companySecretKey}");
     var companyServiceDefApiKey = builder.Configuration["CompanyApiService:DefaultApiKey"];
-    Console.WriteLine($"companyServiceDefApiKey: {companyServiceDefApiKey}");
+    Console.WriteLine($"companyServiceDefApiKey: {companyServiceDefApiKey}");*/
     
-    CryptOptions cryptOptions = new();
+    Env.TraversePath().Load();
+    
+    var vaultUri = Environment.GetEnvironmentVariable("VAULT_ADDR");
+    var vaultToken = Environment.GetEnvironmentVariable("VAULT_TOKEN");
+    
+    // Hashicorp Vault Secrets.
+    var vaultSecretsProvider = new VaultSecretProvider(vaultUri, vaultToken);
+
+    var vaultSecretKey = await vaultSecretsProvider.GetSecretValueAsync("secrets/services/company", "SecretKey", "secrets");
+    Console.WriteLine($"vaultSecretKey: {vaultSecretKey}");
+    var vaultDefaultApiKey = await vaultSecretsProvider.GetSecretValueAsync("secrets/services/company", "DefaultApiKey", "secrets");
+    Console.WriteLine($"vaultDefaultApiKey: {vaultDefaultApiKey}");
+
+    builder.Services.ConfigureDependencyInjection(builder.Configuration);
+    
+    /*CryptOptions cryptOptions = new();
 
     builder.Configuration
         .GetRequiredSection(nameof(CryptOptions))
@@ -153,7 +167,7 @@ try
         p.ResolveWith<SecretApiService>(companySecretKey));
 
     builder.Services.AddAutoMapper(Assembly.GetExecutingAssembly()); // AutoMapper registration
-    builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly()));
+    builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly()));*/
 
     builder.Services.ConfigureHttpJsonOptions(options =>
     {
@@ -161,7 +175,7 @@ try
         options.SerializerOptions.IncludeFields = true;
     });
 
-//builder.Services.AddRateLimiterService();
+    //builder.Services.AddRateLimiterService();
     builder.Services.AddWindowRateLimiterService();
 
     builder.Services.AddHttpClient();

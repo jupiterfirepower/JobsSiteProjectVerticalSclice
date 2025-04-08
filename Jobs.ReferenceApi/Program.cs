@@ -3,6 +3,7 @@ using System.Reflection;
 using Asp.Versioning;
 using Asp.Versioning.Builder;
 using AutoMapper;
+using DotNetEnv;
 using Jobs.Common.Constants;
 using Jobs.Common.Contracts;
 using Jobs.Common.Extentions;
@@ -19,6 +20,7 @@ using Jobs.Core.Managers;
 using Jobs.Core.Middleware;
 using Jobs.Core.Observability.Options;
 using Jobs.Core.Providers;
+using Jobs.Core.Providers.Vault;
 using Jobs.Core.Services;
 using Jobs.DTO;
 using Jobs.DTO.In;
@@ -70,21 +72,37 @@ try
         options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
     
     // user-secrets
-    var referenceSecretKey = builder.Configuration["ReferenceApiService:SecretKey"];
+    /*var referenceSecretKey = builder.Configuration["ReferenceApiService:SecretKey"];
     Console.WriteLine($"referenceSecretKey: {referenceSecretKey}");
     var referenceServiceDefApiKey = builder.Configuration["ReferenceApiService:DefaultApiKey"];
-    Console.WriteLine($"referenceServiceDefApiKey: {referenceServiceDefApiKey}");
+    Console.WriteLine($"referenceServiceDefApiKey: {referenceServiceDefApiKey}");*/
+    
+    Env.TraversePath().Load();
+    
+    var vaultUri = Environment.GetEnvironmentVariable("VAULT_ADDR");
+    var vaultToken = Environment.GetEnvironmentVariable("VAULT_TOKEN");
+    
+    // Hashicorp Vault Secrets.
+    var vaultSecretsProvider = new VaultSecretProvider(vaultUri, vaultToken);
+
+    var vaultSecretKey = await vaultSecretsProvider.GetSecretValueAsync("secrets/services/reference", "SecretKey", "secrets");
+    Console.WriteLine($"vaultSecretKey: {vaultSecretKey}");
+    var vaultDefaultApiKey = await vaultSecretsProvider.GetSecretValueAsync("secrets/services/reference", "DefaultApiKey", "secrets");
+    Console.WriteLine($"vaultDefaultApiKey: {vaultDefaultApiKey}");
     
     //var vacancySecretKey = builder.Configuration["VacancyApiService:SecretKey"];
     //var referenceSecretKey = "12345678910111213141151617";
     
-    CryptOptions cryptOptions = new();
+    builder.Services.AddMemoryCache();
+    builder.Services.ConfigureDependencyInjection(builder.Configuration);
+    
+    /*CryptOptions cryptOptions = new();
 
     builder.Configuration
         .GetRequiredSection(nameof(CryptOptions))
         .Bind(cryptOptions);
     
-    builder.Services.AddMemoryCache();
+    
     builder.Services.AddSingleton<ICacheService, LocalCacheService>();
     
     builder.Services.AddScoped<IGenericRepository<WorkType>, WorkTypeRepository>();
@@ -113,7 +131,7 @@ try
     builder.Services.AddScoped<ISecretApiService, SecretApiService>(p => p.ResolveWith<SecretApiService>(referenceSecretKey));
     
     builder.Services.AddAutoMapper(Assembly.GetExecutingAssembly()); // AutoMapper registration
-    builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly()));
+    builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly()));*/
 
     builder.Services.ConfigureHttpJsonOptions(options =>
     {
